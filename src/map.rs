@@ -2,15 +2,30 @@ use tcod::Color;
 use std::cmp;
 use rand::Rng;
 use crate::object::Object;
+use tcod::map::FovAlgorithm;
 
 pub const MAP_WIDTH: i32 = 80;
 pub const MAP_HEIGHT: i32 = 45;
 
+pub const FOV_ALGORITHM: FovAlgorithm = FovAlgorithm::Basic;
+pub const FOV_LIGHT_WALLS: bool = true;
+pub const TORCH_RADIUS: i32 = 5;
+
 pub const COLOR_DARK_WALL: Color = Color { r: 0, g: 0, b: 100 };
+pub const COLOR_LIGHT_WALL: Color = Color {
+    r: 130,
+    g: 110,
+    b: 50,
+};
 pub const COLOR_DARK_GROUND: Color = Color {
     r: 50,
     g: 50,
     b: 150,
+};
+pub const COLOR_LIGHT_GROUND: Color = Color {
+    r: 200,
+    g: 180,
+    b: 50,
 };
 
 // Dungeon generator params
@@ -22,6 +37,7 @@ pub const MAX_ROOMS: i32 = 30;
 pub struct Tile {
     pub blocked: bool,
     pub block_sight: bool,
+    pub explored: bool,
 }
 
 impl Tile {
@@ -29,6 +45,7 @@ impl Tile {
         Tile {
             blocked: false,
             block_sight: false,
+            explored: false,
         }
     }
 
@@ -36,6 +53,7 @@ impl Tile {
         Tile {
             blocked: true,
             block_sight: true,
+            explored: false,
         }
     }
 }

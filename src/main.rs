@@ -1,11 +1,13 @@
 use tcod::colors::*;
 use tcod::console::*;
+use tcod::map::{Map as FovMap};
 
 mod object;
 mod map;
 
 use object::Object;
 use map::{Game, MAP_WIDTH, MAP_HEIGHT, COLOR_DARK_GROUND, COLOR_DARK_WALL};
+use crate::map::{TORCH_RADIUS, FOV_LIGHT_WALLS, FOV_ALGORITHM, COLOR_LIGHT_WALL, COLOR_LIGHT_GROUND};
 
 // Actual window size
 const SCREEN_WIDTH: i32 = 80;
@@ -17,23 +19,47 @@ const LIMIT_FPS: i32 = 20;
 struct Tcod {
     root: Root,
     con: Offscreen,
+    fov: FovMap,
 }
 
-fn render_all(tcod: &mut Tcod, game: &Game, objects: &[Object]) {
+fn render_all(tcod: &mut Tcod, game: &mut Game, objects: &[Object], fov_recompute: bool) {
     for object in objects {
-        object.draw(&mut tcod.con);
+        if tcod.fov.is_in_fov(object.x, object.y) {
+            object.draw(&mut tcod.con);
+        }
+    }
+
+    if fov_recompute {
+        let player = &objects[0];
+        tcod.fov
+            .compute_fov(
+                player.x,
+                player.y,
+                TORCH_RADIUS,
+                FOV_LIGHT_WALLS,
+                FOV_ALGORITHM);
     }
 
     for y in 0..MAP_HEIGHT {
         for x in 0..MAP_WIDTH {
-            let wall = game.map[x as usize][y as usize].block_sight;
-            let color = if wall {
-                COLOR_DARK_WALL
-            } else {
-                COLOR_DARK_GROUND
+            let visible = tcod.fov.is_in_fov(x, y);
+            let tile = &mut game.map[x as usize][y as usize];
+            let wall = tile.block_sight;
+            let color = match (visible, wall) {
+                // Outside of FOV
+                (false, true) => COLOR_DARK_WALL,
+                (false, false) => COLOR_DARK_GROUND,
+                // Inside of FOV
+                (true, true) => COLOR_LIGHT_WALL,
+                (true, false) => COLOR_LIGHT_GROUND,
             };
-
-            tcod.con.set_char_background(x, y, color, BackgroundFlag::Set);
+            let explored = &mut tile.explored;
+            if visible {
+                *explored = true;
+            }
+            if *explored {
+                tcod.con.set_char_background(x, y, color, BackgroundFlag::Set);
+            }
         }
     }
 
@@ -88,26 +114,40 @@ fn main() {
         .title("Rust Roguelike")
         .init();
 
-    let con = Offscreen::new(MAP_WIDTH, MAP_HEIGHT);
+    let mut tcod = Tcod {
+        root,
+        con: Offscreen::new(MAP_WIDTH, MAP_HEIGHT),
+        fov: FovMap::new(MAP_WIDTH, MAP_HEIGHT),
+    };
 
-    let mut tcod = Tcod { root, con };
-
-    let center_x = SCREEN_WIDTH / 2;
-    let center_y = SCREEN_HEIGHT / 2;
-
-    let player = Object::new(center_x, center_y, '@', WHITE);
+    let player = Object::new(0, 0, '@', WHITE);
 
     let mut objects = [player];
 
-    let game = Game::new(&mut objects[0]);
+    let mut game = Game::new(&mut objects[0]);
+
+    for y in 0..MAP_HEIGHT {
+        for x in 0..MAP_WIDTH {
+            tcod.fov.set(
+                x,
+                y,
+                !game.map[x as usize][y as usize].block_sight,
+                !game.map[x as usize][y as usize].blocked,
+            );
+        }
+    }
+
+    let mut previous_player_position = (-1, -1);
 
     while !tcod.root.window_closed() {
         tcod.con.clear();
 
-        render_all(&mut tcod, &game, &objects);
+        let fov_recompute = previous_player_position != (objects[0].x, objects[0].y);
+        render_all(&mut tcod, &mut game, &objects, fov_recompute);
         tcod.root.flush();
 
         let player = &mut objects[0];
+        previous_player_position = (player.x, player.y);
         let exit = handle_keys(&mut tcod, &game, player);
         if exit {
             break;
