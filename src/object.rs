@@ -3,8 +3,8 @@ use crate::map::Game;
 
 #[derive(Debug)]
 pub struct Object {
-    x: i32,
-    y: i32,
+    pub x: i32,
+    pub y: i32,
     char: char,
     color: Color,
 }

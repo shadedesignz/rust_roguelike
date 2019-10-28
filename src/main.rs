@@ -92,15 +92,14 @@ fn main() {
 
     let mut tcod = Tcod { root, con };
 
-    let game = Game::default();
-
     let center_x = SCREEN_WIDTH / 2;
     let center_y = SCREEN_HEIGHT / 2;
 
     let player = Object::new(center_x, center_y, '@', WHITE);
-    let npc = Object::new(center_x - 5, center_y, '@', YELLOW);
 
-    let mut objects = [player, npc];
+    let mut objects = [player];
+
+    let game = Game::new(&mut objects[0]);
 
     while !tcod.root.window_closed() {
         tcod.con.clear();
