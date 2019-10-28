@@ -23,12 +23,6 @@ struct Tcod {
 }
 
 fn render_all(tcod: &mut Tcod, game: &mut Game, objects: &[Object], fov_recompute: bool) {
-    for object in objects {
-        if tcod.fov.is_in_fov(object.x, object.y) {
-            object.draw(&mut tcod.con);
-        }
-    }
-
     if fov_recompute {
         let player = &objects[0];
         tcod.fov
@@ -60,6 +54,12 @@ fn render_all(tcod: &mut Tcod, game: &mut Game, objects: &[Object], fov_recomput
             if *explored {
                 tcod.con.set_char_background(x, y, color, BackgroundFlag::Set);
             }
+        }
+    }
+
+    for object in objects {
+        if tcod.fov.is_in_fov(object.x, object.y) {
+            object.draw(&mut tcod.con);
         }
     }
 
