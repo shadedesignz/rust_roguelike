@@ -1,7 +1,5 @@
 use tcod::colors::*;
 use tcod::console::*;
-use tcod::input::Key;
-use tcod::input::KeyCode::*;
 
 // Actual window size
 const SCREEN_WIDTH: i32 = 80;
@@ -12,9 +10,12 @@ const LIMIT_FPS: i32 = 20;
 
 struct Tcod {
     root: Root,
+    con: Offscreen,
 }
 
 fn main() {
+    tcod::system::set_fps(LIMIT_FPS);
+
     let root = Root::initializer()
         .font("arial10x10.png", FontLayout::Tcod)
         .font_type(FontType::Greyscale)
@@ -22,9 +23,9 @@ fn main() {
         .title("Rust Roguelike")
         .init();
 
-    let mut tcod = Tcod { root };
+    let con = Offscreen::new(SCREEN_WIDTH, SCREEN_HEIGHT);
 
-    tcod::system::set_fps(LIMIT_FPS);
+    let mut tcod = Tcod { root, con };
 
     let mut player_x = SCREEN_WIDTH / 2;
     let mut player_y = SCREEN_HEIGHT / 2;
@@ -35,14 +36,23 @@ fn main() {
             break;
         }
 
-        tcod.root.set_default_foreground(WHITE);
-        tcod.root.clear();
-        tcod.root.put_char(player_x, player_y, '@', BackgroundFlag::None);
+        blit(
+            &tcod.con,
+            (0, 0),
+            (SCREEN_WIDTH, SCREEN_HEIGHT),
+            &mut tcod.root,
+            (0, 0),
+            1.0,
+            1.0,
+        );
         tcod.root.flush();
     }
 }
 
 fn handle_keys(tcod: &mut Tcod, player_x: &mut i32, player_y: &mut i32) -> bool {
+    use tcod::input::Key;
+    use tcod::input::KeyCode::*;
+
     let key = tcod.root.wait_for_keypress(true);
     match key {
         // Movement
