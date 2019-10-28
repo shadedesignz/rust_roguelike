@@ -3,6 +3,7 @@ use std::cmp;
 use rand::Rng;
 use crate::object::Object;
 use tcod::map::FovAlgorithm;
+use crate::map::TunnelDirection::{Horizontal, Vertical};
 
 pub const MAP_WIDTH: i32 = 80;
 pub const MAP_HEIGHT: i32 = 45;
@@ -99,16 +100,28 @@ fn create_room(room: Rect, map: &mut Map) {
     }
 }
 
-fn create_horiz_tunnel(x1: i32, x2: i32, y: i32, map: &mut Map) {
-    for x in cmp::min(x1, x2)..(cmp::max(x1, x2) + 1) {
-        map[x as usize][y as usize] = Tile::empty();
+enum TunnelDirection {
+    Horizontal,
+    Vertical,
+}
+
+fn create_tunnel(a1: i32, a2: i32, b: usize, dir: TunnelDirection, map: &mut Map) {
+    let low = cmp::min(a1, a2);
+    let high = cmp::max(a1, a2) + 1;
+    for a in low..high {
+        match dir {
+            Horizontal => { map[a as usize][b] = Tile::empty() },
+            Vertical => { map[b][a as usize] = Tile::empty() },
+        }
     }
 }
 
+fn create_horiz_tunnel(x1: i32, x2: i32, y: i32, map: &mut Map) {
+    create_tunnel(x1, x2, y as usize, Horizontal, map);
+}
+
 fn create_vert_tunnel(y1: i32, y2: i32, x: i32, map: &mut Map) {
-    for y in cmp::min(y1, y2)..(cmp::max(y1, y2) + 1) {
-        map[x as usize][y as usize] = Tile::empty();
-    }
+    create_tunnel(y1, y2, x as usize, Vertical, map);
 }
 
 pub type Map = Vec<Vec<Tile>>;
