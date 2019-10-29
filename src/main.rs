@@ -11,7 +11,7 @@ use map::{Game, MAP_WIDTH, MAP_HEIGHT, COLOR_DARK_GROUND, COLOR_DARK_WALL};
 use crate::map::{TORCH_RADIUS, FOV_LIGHT_WALLS, FOV_ALGORITHM, COLOR_LIGHT_WALL, COLOR_LIGHT_GROUND, PLAYER};
 use crate::object::PlayerAction;
 use crate::object::PlayerAction::*;
-use crate::ai::{Fighter, ai_take_turn, mut_two};
+use crate::ai::{Fighter, ai_take_turn, mut_two, DeathCallback};
 
 // Actual window size
 const SCREEN_WIDTH: i32 = 80;
@@ -61,10 +61,15 @@ fn render_all(tcod: &mut Tcod, game: &mut Game, objects: &[Object], fov_recomput
         }
     }
 
-    for object in objects {
-        if tcod.fov.is_in_fov(object.x, object.y) {
-            object.draw(&mut tcod.con);
-        }
+    let mut to_draw: Vec<_> = objects
+        .iter()
+        .filter(|o| tcod.fov.is_in_fov(o.x, o.y))
+        .collect();
+    // Sort so that non-blocking objects come first
+    to_draw.sort_by(|o1, o2| { o1.blocks.cmp(&o2.blocks) });
+    // Draw the objects in the list
+    for object in &to_draw {
+        object.draw(&mut tcod.con);
     }
 
     // Show player stats
@@ -98,7 +103,7 @@ fn player_move_or_attack(dx: i32, dy: i32, game: &Game, objects: &mut [Object]) 
     // Try to find an attack-able object
     let target_id = objects
         .iter()
-        .position(|object| object.pos() == (x, y));
+        .position(|object| object.fighter.is_some() && object.pos() == (x, y));
 
     // Attack if target found, else move
     match target_id {
@@ -181,6 +186,7 @@ fn main() {
         hp: 30,
         defense: 2,
         power: 5,
+        on_death: DeathCallback::Player,
     });
 
     let mut objects = vec![player];

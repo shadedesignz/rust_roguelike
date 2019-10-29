@@ -1,7 +1,7 @@
 use tcod::{Color, Console, BackgroundFlag, colors};
 use crate::map::{Rect, Map};
 use rand::Rng;
-use crate::ai::{Fighter, Ai};
+use crate::ai::{Fighter, Ai, DeathCallback};
 
 const MAX_ROOM_MONSTERS: i32 = 3;
 
@@ -74,6 +74,12 @@ impl Object {
                 fighter.hp -= damage;
             }
         }
+        if let Some(fighter) = self.fighter {
+            if fighter.hp <= 0 {
+                self.alive = false;
+                fighter.on_death.callback(self);
+            }
+        }
     }
 
     pub fn attack(&mut self, target: &mut Object) {
@@ -122,6 +128,7 @@ pub fn place_objects(room: Rect, map: &Map, objects: &mut Vec<Object>) {
                     hp: 10,
                     defense: 0,
                     power: 3,
+                    on_death: DeathCallback::Monster,
                 });
                 orc.ai = Some(Ai::Basic);
                 orc
@@ -132,6 +139,7 @@ pub fn place_objects(room: Rect, map: &Map, objects: &mut Vec<Object>) {
                     hp: 16,
                     defense: 1,
                     power: 4,
+                    on_death: DeathCallback::Monster,
                 });
                 troll.ai = Some(Ai::Basic);
                 troll

@@ -2,6 +2,45 @@ use crate::map::{Map, Game, PLAYER};
 use crate::object::Object;
 use crate::Tcod;
 use std::cmp;
+use tcod::colors::DARK_RED;
+
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub enum DeathCallback {
+    Player,
+    Monster,
+}
+
+impl DeathCallback {
+    pub fn callback(self, object: &mut Object) {
+        use DeathCallback::*;
+        let callback: fn(&mut Object) = match self {
+            Player => player_death,
+            Monster => monster_death,
+        };
+        callback(object);
+    }
+}
+
+pub fn player_death(player: &mut Object) {
+    // Game over
+    println!("You died!");
+
+    // Turn the player into a corpse
+    player.char = '%';
+    player.color = DARK_RED;
+}
+
+pub fn monster_death(monster: &mut Object) {
+    println!("{} is dead!", monster.name);
+
+    // Turn the monster into a corpse
+    monster.char = '%';
+    monster.color = DARK_RED;
+    monster.blocks = false;
+    monster.fighter = None;
+    monster.ai = None;
+    monster.name = format!("Remains of {}", monster.name);
+}
 
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub struct Fighter {
@@ -9,6 +48,7 @@ pub struct Fighter {
     pub hp: i32,
     pub defense: i32,
     pub power: i32,
+    pub on_death: DeathCallback,
 }
 
 #[derive(Clone, PartialEq, Debug)]
