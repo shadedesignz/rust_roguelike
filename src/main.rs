@@ -11,7 +11,7 @@ use map::{Game, MAP_WIDTH, MAP_HEIGHT, COLOR_DARK_GROUND, COLOR_DARK_WALL};
 use crate::map::{TORCH_RADIUS, FOV_LIGHT_WALLS, FOV_ALGORITHM, COLOR_LIGHT_WALL, COLOR_LIGHT_GROUND, PLAYER};
 use crate::object::PlayerAction;
 use crate::object::PlayerAction::*;
-use crate::ai::{Fighter, ai_take_turn};
+use crate::ai::{Fighter, ai_take_turn, mut_two};
 
 // Actual window size
 const SCREEN_WIDTH: i32 = 80;
@@ -67,6 +67,18 @@ fn render_all(tcod: &mut Tcod, game: &mut Game, objects: &[Object], fov_recomput
         }
     }
 
+    // Show player stats
+    tcod.root.set_default_foreground(WHITE);
+    if let Some(fighter) = objects[PLAYER].fighter {
+        tcod.root.print_ex(
+            1,
+            SCREEN_HEIGHT - 2,
+            BackgroundFlag::None,
+            TextAlignment::Left,
+            format!("HP: {}/{}", fighter.hp, fighter.max_hp),
+        );
+    }
+
     blit(
         &tcod.con,
         (0, 0),
@@ -91,10 +103,8 @@ fn player_move_or_attack(dx: i32, dy: i32, game: &Game, objects: &mut [Object]) 
     // Attack if target found, else move
     match target_id {
         Some(target_id) => {
-            println!(
-                "The {} laughs at your puny efforts to attack him!",
-                objects[target_id].name
-            );
+            let (player, target) = mut_two(PLAYER, target_id, objects);
+            player.attack(target);
         },
         None => {
             Object::move_by(PLAYER, dx, dy, &game.map, objects);
