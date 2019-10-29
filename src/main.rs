@@ -7,7 +7,9 @@ mod map;
 
 use object::Object;
 use map::{Game, MAP_WIDTH, MAP_HEIGHT, COLOR_DARK_GROUND, COLOR_DARK_WALL};
-use crate::map::{TORCH_RADIUS, FOV_LIGHT_WALLS, FOV_ALGORITHM, COLOR_LIGHT_WALL, COLOR_LIGHT_GROUND};
+use crate::map::{TORCH_RADIUS, FOV_LIGHT_WALLS, FOV_ALGORITHM, COLOR_LIGHT_WALL, COLOR_LIGHT_GROUND, PLAYER};
+use crate::object::PlayerAction;
+use crate::object::PlayerAction::*;
 
 // Actual window size
 const SCREEN_WIDTH: i32 = 80;
@@ -24,7 +26,7 @@ struct Tcod {
 
 fn render_all(tcod: &mut Tcod, game: &mut Game, objects: &[Object], fov_recompute: bool) {
     if fov_recompute {
-        let player = &objects[0];
+        let player = &objects[PLAYER];
         tcod.fov
             .compute_fov(
                 player.x,
@@ -74,34 +76,74 @@ fn render_all(tcod: &mut Tcod, game: &mut Game, objects: &[Object], fov_recomput
     );
 }
 
-fn handle_keys(tcod: &mut Tcod, game: &Game, player: &mut Object) -> bool {
+fn player_move_or_attack(dx: i32, dy: i32, game: &Game, objects: &mut [Object]) {
+    // Coords the player is moving to/attacking
+    let x = objects[PLAYER].x + dx;
+    let y = objects[PLAYER].y + dy;
+
+    // Try to find an attack-able object
+    let target_id = objects
+        .iter()
+        .position(|object| object.pos() == (x, y));
+
+    // Attack if target found, else move
+    match target_id {
+        Some(target_id) => {
+            println!(
+                "The {} laughs at your puny efforts to attack him!",
+                objects[target_id].name
+            );
+        },
+        None => {
+            Object::move_by(PLAYER, dx, dy, &game.map, objects);
+        }
+    }
+}
+
+fn handle_keys(tcod: &mut Tcod, game: &Game, objects: &mut Vec<Object>) -> PlayerAction {
     use tcod::input::Key;
     use tcod::input::KeyCode::*;
 
     let key = tcod.root.wait_for_keypress(true);
-    match key {
+    let player_alive = objects[PLAYER].alive;
+    match (key, key.text(), player_alive) {
         // Movement
-        Key { code: Up, .. } => player.move_by(0, -1, game),
-        Key { code: Down, .. } => player.move_by(0, 1, game),
-        Key { code: Left, .. } => player.move_by(-1, 0, game),
-        Key { code: Right, .. } => player.move_by(1, 0, game),
+        (Key { code: Up, .. }, _, true) => {
+            player_move_or_attack(0, -1, game, objects);
+            TookTurn
+        },
+        (Key { code: Down, .. }, _, true) => {
+            player_move_or_attack(0, 1, game, objects);
+            TookTurn
+        },
+        (Key { code: Left, .. }, _, true) => {
+            player_move_or_attack(-1, 0, game, objects);
+            TookTurn
+        },
+        (Key { code: Right, .. }, _, true) => {
+            player_move_or_attack(1, 0, game, objects);
+            TookTurn
+        },
 
-        Key {
-            code: Enter,
-            alt: true,
-            ..
-        } => {
+        (
+            Key {
+                code: Enter,
+                alt: true,
+                ..
+            },
+            _,
+            _,
+        ) => {
             // Alt+Enter: toggle fullscreen
             let fullscreen = tcod.root.is_fullscreen();
             tcod.root.set_fullscreen(!fullscreen);
+            DidntTakeTurn
         },
         // Exit the game
-        Key { code: Escape, .. } => return true,
+        (Key { code: Escape, .. }, _, _) => Exit,
 
-        _ => {}
+        _ => DidntTakeTurn
     }
-
-    false
 }
 
 fn main() {
@@ -120,11 +162,12 @@ fn main() {
         fov: FovMap::new(MAP_WIDTH, MAP_HEIGHT),
     };
 
-    let player = Object::new(0, 0, '@', WHITE);
+    let mut player = Object::new(0, 0, '@', "player", WHITE, true);
+    player.alive = true;
 
-    let mut objects = [player];
+    let mut objects = vec![player];
 
-    let mut game = Game::new(&mut objects[0]);
+    let mut game = Game::new(&mut objects);
 
     for y in 0..MAP_HEIGHT {
         for x in 0..MAP_WIDTH {
@@ -142,15 +185,24 @@ fn main() {
     while !tcod.root.window_closed() {
         tcod.con.clear();
 
-        let fov_recompute = previous_player_position != (objects[0].x, objects[0].y);
+        let fov_recompute = previous_player_position != (objects[PLAYER].pos());
         render_all(&mut tcod, &mut game, &objects, fov_recompute);
         tcod.root.flush();
 
-        let player = &mut objects[0];
-        previous_player_position = (player.x, player.y);
-        let exit = handle_keys(&mut tcod, &game, player);
-        if exit {
+        previous_player_position = objects[PLAYER].pos();
+        let player_action = handle_keys(&mut tcod, &game, &mut objects);
+        if player_action == Exit {
             break;
+        }
+
+        // Let monsters take their turn
+        if objects[PLAYER].alive && player_action != DidntTakeTurn {
+            for object in &objects {
+                // Non-player moves
+                if (object as *const _) != (&objects[PLAYER] as *const _) {
+                    println!("The {} growls!", object.name);
+                }
+            }
         }
     }
 }
