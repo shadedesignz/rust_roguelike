@@ -5,17 +5,23 @@ use crate::map::Game;
 pub struct Object {
     pub x: i32,
     pub y: i32,
-    char: char,
-    color: Color,
+    pub char: char,
+    pub color: Color,
+    pub name: String,
+    pub blocks: bool,
+    pub alive: bool,
 }
 
 impl Object {
-    pub fn new(x: i32, y: i32, char: char, color: Color) -> Self {
+    pub fn new(x: i32, y: i32, char: char, name: &str, color: Color, blocks: bool) -> Self {
         Object {
             x,
             y,
             char,
             color,
+            name: name.into(),
+            blocks,
+            alive: false,
         }
     }
 
