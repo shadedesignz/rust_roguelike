@@ -1,5 +1,11 @@
 use tcod::{Color, Console, BackgroundFlag};
 use crate::map::Game;
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub enum PlayerAction {
+    TookTurn,
+    DidntTakeTurn,
+    Exit
+}
 
 #[derive(Debug)]
 pub struct Object {
