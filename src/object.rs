@@ -1,6 +1,7 @@
 use tcod::{Color, Console, BackgroundFlag, colors};
 use crate::map::{Rect, Map};
 use rand::Rng;
+use crate::ai::{Fighter, Ai};
 
 const MAX_ROOM_MONSTERS: i32 = 3;
 
@@ -20,6 +21,8 @@ pub struct Object {
     pub name: String,
     pub blocks: bool,
     pub alive: bool,
+    pub fighter: Option<Fighter>,
+    pub ai: Option<Ai>,
 }
 
 impl Object {
@@ -32,6 +35,8 @@ impl Object {
             name: name.into(),
             blocks,
             alive: false,
+            fighter: None,
+            ai: None,
         }
     }
 
@@ -55,6 +60,12 @@ impl Object {
         self.x = x;
         self.y = y;
     }
+
+    pub fn distance_to(&self, other: &Object) -> f32 {
+        let dx = other.x - self.x;
+        let dy = other.y - self.y;
+        ((dx.pow(2) + dy.pow(2)) as f32).sqrt()
+    }
 }
 
 pub fn is_blocked(x: i32, y: i32, map: &Map, objects: &[Object]) -> bool {
@@ -74,12 +85,28 @@ pub fn place_objects(room: Rect, map: &Map, objects: &mut Vec<Object>) {
         let x = rand::thread_rng().gen_range(room.x1 + 1, room.x2);
         let y = rand::thread_rng().gen_range(room.y1 + 1, room.y2);
 
-        // 0.8 = 80% chance of getting an orc
         if !is_blocked(x, y, map, objects) {
+            // 0.8 = 80% chance of getting an orc
             let mut monster = if rand::random::<f32>() < 0.8 {
-                Object::new(x, y, 'o', "orc", colors::DESATURATED_GREEN, true)
+                let mut orc = Object::new(x, y, 'o', "orc", colors::DESATURATED_GREEN, true);
+                orc.fighter = Some(Fighter {
+                    max_hp: 10,
+                    hp: 10,
+                    defense: 0,
+                    power: 3,
+                });
+                orc.ai = Some(Ai::Basic);
+                orc
             } else {
-                Object::new(x, y, 'T', "troll", colors::DARKER_GREEN, true)
+                let mut troll = Object::new(x, y, 'T', "troll", colors::DARKER_GREEN, true);
+                troll.fighter = Some(Fighter {
+                    max_hp: 16,
+                    hp: 16,
+                    defense: 1,
+                    power: 4,
+                });
+                troll.ai = Some(Ai::Basic);
+                troll
             };
 
             monster.alive = true;

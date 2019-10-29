@@ -4,12 +4,14 @@ use tcod::map::{Map as FovMap};
 
 mod object;
 mod map;
+mod ai;
 
 use object::Object;
 use map::{Game, MAP_WIDTH, MAP_HEIGHT, COLOR_DARK_GROUND, COLOR_DARK_WALL};
 use crate::map::{TORCH_RADIUS, FOV_LIGHT_WALLS, FOV_ALGORITHM, COLOR_LIGHT_WALL, COLOR_LIGHT_GROUND, PLAYER};
 use crate::object::PlayerAction;
 use crate::object::PlayerAction::*;
+use crate::ai::{Fighter, ai_take_turn};
 
 // Actual window size
 const SCREEN_WIDTH: i32 = 80;
@@ -18,10 +20,10 @@ const SCREEN_HEIGHT: i32 = 50;
 // Max FPS
 const LIMIT_FPS: i32 = 20;
 
-struct Tcod {
-    root: Root,
-    con: Offscreen,
-    fov: FovMap,
+pub struct Tcod {
+    pub root: Root,
+    pub con: Offscreen,
+    pub fov: FovMap,
 }
 
 fn render_all(tcod: &mut Tcod, game: &mut Game, objects: &[Object], fov_recompute: bool) {
@@ -164,6 +166,12 @@ fn main() {
 
     let mut player = Object::new(0, 0, '@', "player", WHITE, true);
     player.alive = true;
+    player.fighter = Some(Fighter {
+        max_hp: 30,
+        hp: 30,
+        defense: 2,
+        power: 5,
+    });
 
     let mut objects = vec![player];
 
@@ -197,10 +205,9 @@ fn main() {
 
         // Let monsters take their turn
         if objects[PLAYER].alive && player_action != DidntTakeTurn {
-            for object in &objects {
-                // Non-player moves
-                if (object as *const _) != (&objects[PLAYER] as *const _) {
-                    println!("The {} growls!", object.name);
+            for id in 0..objects.len() {
+                if objects[id].ai.is_some() {
+                    ai_take_turn(id, &tcod, &game, &mut objects);
                 }
             }
         }
