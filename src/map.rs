@@ -1,9 +1,11 @@
 use tcod::Color;
 use std::cmp;
 use rand::Rng;
-use crate::object::Object;
+use crate::object::{Object, place_objects};
 use tcod::map::FovAlgorithm;
 use crate::map::TunnelDirection::{Horizontal, Vertical};
+
+pub const PLAYER: usize = 0;
 
 pub const MAP_WIDTH: i32 = 80;
 pub const MAP_HEIGHT: i32 = 45;
@@ -60,11 +62,11 @@ impl Tile {
 }
 
 #[derive(Clone, Copy, Debug)]
-struct Rect {
-    x1: i32,
-    y1: i32,
-    x2: i32,
-    y2: i32,
+pub struct Rect {
+    pub x1: i32,
+    pub y1: i32,
+    pub x2: i32,
+    pub y2: i32,
 }
 
 impl Rect {
@@ -131,13 +133,13 @@ pub struct Game {
 }
 
 impl Game {
-    pub fn new(player: &mut Object) -> Self {
+    pub fn new(objects: &mut Vec<Object>) -> Self {
         Game {
-            map: Game::make_map(player)
+            map: Game::make_map(objects)
         }
     }
 
-    fn make_map(player: &mut Object) -> Map {
+    fn make_map(objects: &mut Vec<Object>) -> Map {
         let mut map = vec![vec![Tile::wall(); MAP_HEIGHT as usize]; MAP_WIDTH as usize];
         let mut rooms = vec![];
 
@@ -158,14 +160,14 @@ impl Game {
 
             if !failed {
                 create_room(new_room, &mut map);
+                place_objects(new_room, &map, objects);
 
                 // Center coordinates of the new room
                 let (new_x, new_y) = new_room.center();
 
                 if rooms.is_empty() {
                     // Set the player here
-                    player.x = new_x;
-                    player.y = new_y;
+                    objects[PLAYER].set_pos(new_x, new_y);
                 } else {
                     // Connect all rooms that aren't the first room with tunnels
 
