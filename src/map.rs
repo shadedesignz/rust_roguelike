@@ -4,6 +4,7 @@ use rand::Rng;
 use crate::object::{Object, place_objects};
 use tcod::map::FovAlgorithm;
 use crate::map::TunnelDirection::{Horizontal, Vertical};
+use crate::log::Messages;
 
 pub const PLAYER: usize = 0;
 
@@ -130,12 +131,14 @@ pub type Map = Vec<Vec<Tile>>;
 
 pub struct Game {
     pub map: Map,
+    pub messages: Messages,
 }
 
 impl Game {
     pub fn new(objects: &mut Vec<Object>) -> Self {
         Game {
-            map: Game::make_map(objects)
+            map: Game::make_map(objects),
+            messages: Messages::new(),
         }
     }
 

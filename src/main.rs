@@ -6,6 +6,7 @@ mod object;
 mod map;
 mod ai;
 mod gui;
+mod log;
 
 use object::Object;
 use map::{Game, MAP_WIDTH, MAP_HEIGHT, COLOR_DARK_GROUND, COLOR_DARK_WALL};
@@ -14,6 +15,7 @@ use crate::object::PlayerAction;
 use crate::object::PlayerAction::*;
 use crate::ai::{Fighter, ai_take_turn, mut_two, DeathCallback};
 use crate::gui::{PANEL_HEIGHT, render_bar, BAR_WIDTH, PANEL_Y};
+use crate::log::{MSG_HEIGHT, MSG_X, MSG_WIDTH};
 
 // Actual window size
 pub const SCREEN_WIDTH: i32 = 80;
@@ -79,6 +81,18 @@ fn render_all(tcod: &mut Tcod, game: &mut Game, objects: &[Object], fov_recomput
     tcod.panel.set_default_background(BLACK);
     tcod.panel.clear();
 
+    // Print the game messages, one line at a time
+    let mut y = MSG_HEIGHT as i32;
+    for &(ref msg, color) in game.messages.iter().rev() {
+        let msg_height = tcod.panel.get_height_rect(MSG_X, y, MSG_WIDTH, 0, msg);
+        y -= msg_height;
+        if y < 0 {
+            break;
+        }
+        tcod.panel.set_default_foreground(color);
+        tcod.panel.print_rect(MSG_X, y, MSG_WIDTH, 0, msg);
+    }
+
     // Show player stats
     let hp = objects[PLAYER].fighter.map_or(0, |f| f.hp);
     let max_hp = objects[PLAYER].fighter.map_or(0, |f| f.max_hp);
@@ -115,7 +129,7 @@ fn render_all(tcod: &mut Tcod, game: &mut Game, objects: &[Object], fov_recomput
     );
 }
 
-fn player_move_or_attack(dx: i32, dy: i32, game: &Game, objects: &mut [Object]) {
+fn player_move_or_attack(dx: i32, dy: i32, game: &mut Game, objects: &mut [Object]) {
     // Coords the player is moving to/attacking
     let x = objects[PLAYER].x + dx;
     let y = objects[PLAYER].y + dy;
@@ -129,7 +143,7 @@ fn player_move_or_attack(dx: i32, dy: i32, game: &Game, objects: &mut [Object]) 
     match target_id {
         Some(target_id) => {
             let (player, target) = mut_two(PLAYER, target_id, objects);
-            player.attack(target);
+            player.attack(target, game);
         },
         None => {
             Object::move_by(PLAYER, dx, dy, &game.map, objects);
@@ -137,7 +151,7 @@ fn player_move_or_attack(dx: i32, dy: i32, game: &Game, objects: &mut [Object]) 
     }
 }
 
-fn handle_keys(tcod: &mut Tcod, game: &Game, objects: &mut Vec<Object>) -> PlayerAction {
+fn handle_keys(tcod: &mut Tcod, game: &mut Game, objects: &mut Vec<Object>) -> PlayerAction {
     use tcod::input::Key;
     use tcod::input::KeyCode::*;
 
@@ -214,6 +228,12 @@ fn main() {
 
     let mut game = Game::new(&mut objects);
 
+    // Add a welcome message
+    game.messages.add(
+        "Welcome stranger! Prepare to perish in the Tombs of the Ancient Kings.",
+        RED
+    );
+
     for y in 0..MAP_HEIGHT {
         for x in 0..MAP_WIDTH {
             tcod.fov.set(
@@ -235,7 +255,7 @@ fn main() {
         tcod.root.flush();
 
         previous_player_position = objects[PLAYER].pos();
-        let player_action = handle_keys(&mut tcod, &game, &mut objects);
+        let player_action = handle_keys(&mut tcod, &mut game, &mut objects);
         if player_action == Exit {
             break;
         }
@@ -244,7 +264,7 @@ fn main() {
         if objects[PLAYER].alive && player_action != DidntTakeTurn {
             for id in 0..objects.len() {
                 if objects[id].ai.is_some() {
-                    ai_take_turn(id, &tcod, &game, &mut objects);
+                    ai_take_turn(id, &tcod, &mut game, &mut objects);
                 }
             }
         }

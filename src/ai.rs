@@ -2,7 +2,7 @@ use crate::map::{Map, Game, PLAYER};
 use crate::object::Object;
 use crate::Tcod;
 use std::cmp;
-use tcod::colors::DARK_RED;
+use tcod::colors::{DARK_RED, ORANGE, RED};
 
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum DeathCallback {
@@ -11,27 +11,28 @@ pub enum DeathCallback {
 }
 
 impl DeathCallback {
-    pub fn callback(self, object: &mut Object) {
+    pub fn callback(self, object: &mut Object, game: &mut Game) {
         use DeathCallback::*;
-        let callback: fn(&mut Object) = match self {
+        let callback = match self {
             Player => player_death,
             Monster => monster_death,
         };
-        callback(object);
+        callback(object, game);
     }
 }
 
-pub fn player_death(player: &mut Object) {
+pub fn player_death(player: &mut Object, game: &mut Game) {
     // Game over
-    println!("You died!");
+    game.messages.add("You died!", RED);
 
     // Turn the player into a corpse
     player.char = '%';
     player.color = DARK_RED;
 }
 
-pub fn monster_death(monster: &mut Object) {
-    println!("{} is dead!", monster.name);
+pub fn monster_death(monster: &mut Object, game: &mut Game) {
+    game.messages
+        .add(format!("{} is dead!", monster.name), ORANGE);
 
     // Turn the monster into a corpse
     monster.char = '%';
@@ -66,7 +67,7 @@ pub fn move_towards(id: usize, target_x: i32, target_y: i32, map: &Map, objects:
     Object::move_by(id, dx, dy, map, objects);
 }
 
-pub fn ai_take_turn(monster_id: usize, tcod: &Tcod, game: &Game, objects: &mut [Object]) {
+pub fn ai_take_turn(monster_id: usize, tcod: &Tcod, game: &mut Game, objects: &mut [Object]) {
     let (monster_x, monster_y) = objects[monster_id].pos();
     if tcod.fov.is_in_fov(monster_x, monster_y) {
         if objects[monster_id].distance_to(&objects[PLAYER]) >= 2.0 {
@@ -74,7 +75,7 @@ pub fn ai_take_turn(monster_id: usize, tcod: &Tcod, game: &Game, objects: &mut [
             move_towards(monster_id, player_x, player_y, &game.map, objects);
         } else if objects[PLAYER].fighter.map_or(false, |f| f.hp > 0) {
             let (monster, player) = mut_two(monster_id, PLAYER, objects);
-            monster.attack(player);
+            monster.attack(player, game);
         }
     }
 }
