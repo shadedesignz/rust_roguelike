@@ -8,7 +8,7 @@ use crate::map::TunnelDirection::{Horizontal, Vertical};
 pub const PLAYER: usize = 0;
 
 pub const MAP_WIDTH: i32 = 80;
-pub const MAP_HEIGHT: i32 = 45;
+pub const MAP_HEIGHT: i32 = 43;
 
 pub const FOV_ALGORITHM: FovAlgorithm = FovAlgorithm::Basic;
 pub const FOV_LIGHT_WALLS: bool = true;

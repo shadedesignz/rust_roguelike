@@ -5,6 +5,7 @@ use tcod::map::{Map as FovMap};
 mod object;
 mod map;
 mod ai;
+mod gui;
 
 use object::Object;
 use map::{Game, MAP_WIDTH, MAP_HEIGHT, COLOR_DARK_GROUND, COLOR_DARK_WALL};
@@ -12,10 +13,11 @@ use crate::map::{TORCH_RADIUS, FOV_LIGHT_WALLS, FOV_ALGORITHM, COLOR_LIGHT_WALL,
 use crate::object::PlayerAction;
 use crate::object::PlayerAction::*;
 use crate::ai::{Fighter, ai_take_turn, mut_two, DeathCallback};
+use crate::gui::{PANEL_HEIGHT, render_bar, BAR_WIDTH, PANEL_Y};
 
 // Actual window size
-const SCREEN_WIDTH: i32 = 80;
-const SCREEN_HEIGHT: i32 = 50;
+pub const SCREEN_WIDTH: i32 = 80;
+pub const SCREEN_HEIGHT: i32 = 50;
 
 // Max FPS
 const LIMIT_FPS: i32 = 20;
@@ -23,6 +25,7 @@ const LIMIT_FPS: i32 = 20;
 pub struct Tcod {
     pub root: Root,
     pub con: Offscreen,
+    pub panel: Offscreen,
     pub fov: FovMap,
 }
 
@@ -73,16 +76,33 @@ fn render_all(tcod: &mut Tcod, game: &mut Game, objects: &[Object], fov_recomput
     }
 
     // Show player stats
-    tcod.root.set_default_foreground(WHITE);
-    if let Some(fighter) = objects[PLAYER].fighter {
-        tcod.root.print_ex(
-            1,
-            SCREEN_HEIGHT - 2,
-            BackgroundFlag::None,
-            TextAlignment::Left,
-            format!("HP: {}/{}", fighter.hp, fighter.max_hp),
-        );
-    }
+    tcod.panel.set_default_background(BLACK);
+    tcod.panel.clear();
+
+    // Show player stats
+    let hp = objects[PLAYER].fighter.map_or(0, |f| f.hp);
+    let max_hp = objects[PLAYER].fighter.map_or(0, |f| f.max_hp);
+    render_bar(
+        &mut tcod.panel,
+        1,
+        1,
+        BAR_WIDTH,
+        "HP",
+        hp,
+        max_hp,
+        LIGHT_RED,
+        DARKER_RED,
+    );
+
+    blit(
+        &tcod.panel,
+        (0, 0),
+        (SCREEN_WIDTH, PANEL_HEIGHT),
+        &mut tcod.root,
+        (0, PANEL_Y),
+        1.0,
+        1.0,
+    );
 
     blit(
         &tcod.con,
@@ -176,6 +196,7 @@ fn main() {
     let mut tcod = Tcod {
         root,
         con: Offscreen::new(MAP_WIDTH, MAP_HEIGHT),
+        panel: Offscreen::new(SCREEN_WIDTH, PANEL_HEIGHT),
         fov: FovMap::new(MAP_WIDTH, MAP_HEIGHT),
     };
 
