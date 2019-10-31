@@ -70,7 +70,7 @@ fn render_all(tcod: &mut Tcod, game: &mut Game, objects: &[Object], fov_recomput
 
     let mut to_draw: Vec<_> = objects
         .iter()
-        .filter(|o| tcod.fov.is_in_fov(o.x, o.y))
+        .filter(|o| tcod.fov.is_in_fov(o.x, o.y) || !o.alive && o.item.is_none())
         .collect();
     // Sort so that non-blocking objects come first
     to_draw.sort_by(|o1, o2| { o1.blocks.cmp(&o2.blocks) });
