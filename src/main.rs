@@ -237,7 +237,7 @@ fn main() {
         key: Default::default(),
     };
 
-    let mut player = Object::new(0, 0, '@', "player", WHITE, true);
+    let mut player = Object::new(0, 0, '@', "Player", WHITE, true);
     player.alive = true;
     player.fighter = Some(Fighter {
         max_hp: 30,

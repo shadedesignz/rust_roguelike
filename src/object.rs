@@ -107,6 +107,15 @@ impl Object {
         self.y = y;
     }
 
+
+    pub fn can_attack(&self, other: &Object) -> bool {
+        let dx = other.x - self.x;
+        let dy = other.y - self.y;
+        let in_range = ((dx.pow(2) + dy.pow(2)) as f32).sqrt() < 2.0;
+        let is_not_diagonal = other.x == self.x || other.y == self.y;
+        in_range && is_not_diagonal
+    }
+
     pub fn distance_to(&self, other: &Object) -> f32 {
         let dx = other.x - self.x;
         let dy = other.y - self.y;
@@ -221,7 +230,7 @@ pub fn place_objects(room: Rect, map: &Map, objects: &mut Vec<Object>) {
         if !is_blocked(x, y, map, objects) {
             // 0.8 = 80% chance of getting an orc
             let mut monster = if rand::random::<f32>() < 0.8 {
-                let mut orc = Object::new(x, y, 'o', "orc", colors::DESATURATED_GREEN, true);
+                let mut orc = Object::new(x, y, 'o', "Orc", colors::DESATURATED_GREEN, true);
                 orc.fighter = Some(Fighter {
                     max_hp: 10,
                     hp: 10,
@@ -232,7 +241,7 @@ pub fn place_objects(room: Rect, map: &Map, objects: &mut Vec<Object>) {
                 orc.ai = Some(Ai::Basic);
                 orc
             } else {
-                let mut troll = Object::new(x, y, 'T', "troll", colors::DARKER_GREEN, true);
+                let mut troll = Object::new(x, y, 'T', "Troll", colors::DARKER_GREEN, true);
                 troll.fighter = Some(Fighter {
                     max_hp: 16,
                     hp: 16,
@@ -260,7 +269,7 @@ pub fn place_objects(room: Rect, map: &Map, objects: &mut Vec<Object>) {
         // Only place an item if the tile is not blocked
         if !is_blocked(x, y, map, objects) {
             // Create a healing potion
-            let mut object = Object::new(x, y, '!', "healing potion", VIOLET, false);
+            let mut object = Object::new(x, y, '!', "Healing Potion", VIOLET, false);
             object.item = Some(Item::Heal);
             objects.push(object);
         }
