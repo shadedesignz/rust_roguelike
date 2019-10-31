@@ -2,15 +2,21 @@ use tcod::{Color, Console, BackgroundFlag, colors};
 use crate::map::{Rect, Map, Game};
 use rand::Rng;
 use crate::ai::{Fighter, Ai, DeathCallback};
-use tcod::colors::WHITE;
+use tcod::colors::{WHITE, VIOLET, RED, GREEN};
 
 const MAX_ROOM_MONSTERS: i32 = 3;
+const MAX_ROOM_ITEMS: i32 = 2;
 
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum PlayerAction {
     TookTurn,
     DidntTakeTurn,
     Exit
+}
+
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub enum Item {
+    Heal,
 }
 
 #[derive(Debug)]
@@ -24,6 +30,7 @@ pub struct Object {
     pub alive: bool,
     pub fighter: Option<Fighter>,
     pub ai: Option<Ai>,
+    pub item: Option<Item>,
 }
 
 impl Object {
@@ -38,6 +45,7 @@ impl Object {
             alive: false,
             fighter: None,
             ai: None,
+            item: None,
         }
     }
 
@@ -107,6 +115,25 @@ impl Object {
             );
         }
     }
+
+    pub fn pick_item_up(object_id: usize, game: &mut Game, objects: &mut  Vec<Object>) {
+        if game.inventory.len() >= 26 {
+            game.messages.add(
+                format!(
+                    "Your inventory is full, cannot pick up {}",
+                    objects[object_id].name,
+                ),
+                RED,
+            );
+        } else {
+            let item = objects.swap_remove(object_id);
+            game.messages.add(
+                format!("You picked up a {}!", item.name),
+                GREEN,
+            );
+            game.inventory.push(item);
+        }
+    }
 }
 
 pub fn is_blocked(x: i32, y: i32, map: &Map, objects: &[Object]) -> bool {
@@ -154,6 +181,23 @@ pub fn place_objects(room: Rect, map: &Map, objects: &mut Vec<Object>) {
 
             monster.alive = true;
             objects.push(monster);
+        }
+    }
+
+    // Choose random number of items
+    let num_items = rand::thread_rng().gen_range(0, MAX_ROOM_ITEMS + 1);
+
+    for _ in 0..num_items {
+        // Choose random spot for this item
+        let x = rand::thread_rng().gen_range(room.x1 + 1, room.x2);
+        let y = rand::thread_rng().gen_range(room.y1 + 1, room.y2);
+
+        // Only place an item if the tile is not blocked
+        if !is_blocked(x, y, map, objects) {
+            // Create a healing potion
+            let mut object = Object::new(x, y, '!', "healing potion", VIOLET, false);
+            object.item = Some(Item::Heal);
+            objects.push(object);
         }
     }
 }

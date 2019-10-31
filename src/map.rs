@@ -132,6 +132,7 @@ pub type Map = Vec<Vec<Tile>>;
 pub struct Game {
     pub map: Map,
     pub messages: Messages,
+    pub inventory: Vec<Object>,
 }
 
 impl Game {
@@ -139,6 +140,7 @@ impl Game {
         Game {
             map: Game::make_map(objects),
             messages: Messages::new(),
+            inventory: vec![],
         }
     }
 

@@ -1,5 +1,6 @@
 use tcod::colors::*;
 use tcod::console::*;
+use tcod::input::{self, Event, Key};
 use tcod::map::{Map as FovMap};
 
 mod object;
@@ -29,6 +30,7 @@ pub struct Tcod {
     pub con: Offscreen,
     pub panel: Offscreen,
     pub fov: FovMap,
+    pub key: Key,
 }
 
 fn render_all(tcod: &mut Tcod, game: &mut Game, objects: &[Object], fov_recompute: bool) {
@@ -152,12 +154,10 @@ fn player_move_or_attack(dx: i32, dy: i32, game: &mut Game, objects: &mut [Objec
 }
 
 fn handle_keys(tcod: &mut Tcod, game: &mut Game, objects: &mut Vec<Object>) -> PlayerAction {
-    use tcod::input::Key;
     use tcod::input::KeyCode::*;
 
-    let key = tcod.root.wait_for_keypress(true);
     let player_alive = objects[PLAYER].alive;
-    match (key, key.text(), player_alive) {
+    match (tcod.key, tcod.key.text(), player_alive) {
         // Movement
         (Key { code: Up, .. }, _, true) => {
             player_move_or_attack(0, -1, game, objects);
@@ -174,6 +174,16 @@ fn handle_keys(tcod: &mut Tcod, game: &mut Game, objects: &mut Vec<Object>) -> P
         (Key { code: Right, .. }, _, true) => {
             player_move_or_attack(1, 0, game, objects);
             TookTurn
+        },
+        (Key { code: Text, .. }, "g", true) => {
+            // Pick up an item
+            let item_id = objects
+                .iter()
+                .position(|object| object.pos() == objects[PLAYER].pos() && object.item.is_some());
+            if let Some(item_id) = item_id {
+                Object::pick_item_up(item_id, game, objects);
+            }
+            DidntTakeTurn
         },
 
         (
@@ -212,6 +222,7 @@ fn main() {
         con: Offscreen::new(MAP_WIDTH, MAP_HEIGHT),
         panel: Offscreen::new(SCREEN_WIDTH, PANEL_HEIGHT),
         fov: FovMap::new(MAP_WIDTH, MAP_HEIGHT),
+        key: Default::default(),
     };
 
     let mut player = Object::new(0, 0, '@', "player", WHITE, true);
@@ -249,6 +260,11 @@ fn main() {
 
     while !tcod.root.window_closed() {
         tcod.con.clear();
+
+        match input::check_for_event(input::KEY_PRESS) {
+            Some((_, Event::Key(k))) => tcod.key = k,
+            _ => tcod.key = Default::default(),
+        }
 
         let fov_recompute = previous_player_position != (objects[PLAYER].pos());
         render_all(&mut tcod, &mut game, &objects, fov_recompute);
