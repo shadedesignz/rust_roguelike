@@ -1,11 +1,13 @@
 use tcod::{Color, Console, BackgroundFlag, colors};
-use crate::map::{Rect, Map, Game};
+use crate::map::{Rect, Map, Game, PLAYER};
 use rand::Rng;
 use crate::ai::{Fighter, Ai, DeathCallback};
-use tcod::colors::{WHITE, VIOLET, RED, GREEN};
+use tcod::colors::{WHITE, VIOLET, RED, GREEN, LIGHT_VIOLET};
+use crate::Tcod;
 
 const MAX_ROOM_MONSTERS: i32 = 3;
 const MAX_ROOM_ITEMS: i32 = 2;
+const HEAL_AMOUNT: i32 = 4;
 
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum PlayerAction {
@@ -17,6 +19,32 @@ pub enum PlayerAction {
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum Item {
     Heal,
+}
+
+pub enum UseResult {
+    UsedUp,
+    Cancelled,
+}
+
+fn cast_heal(
+    _inventory_id: usize,
+    _tcod: &mut Tcod,
+    game: &mut Game,
+    objects: &mut [Object]
+) -> UseResult {
+    // Heal the player
+    if let Some(fighter) = objects[PLAYER].fighter {
+        if fighter.hp == fighter.max_hp {
+            game.messages.add("You are already at full health.", RED);
+            return UseResult::Cancelled;
+        }
+        game.messages.add(
+            "Your wounds start to feel better!", LIGHT_VIOLET
+        );
+        objects[PLAYER].heal(HEAL_AMOUNT);
+        return UseResult::UsedUp;
+    }
+    UseResult::Cancelled
 }
 
 #[derive(Debug)]
@@ -46,6 +74,15 @@ impl Object {
             fighter: None,
             ai: None,
             item: None,
+        }
+    }
+
+    pub fn heal(&mut self, amount: i32) {
+        if let Some(ref mut fighter) = self.fighter {
+            fighter.hp += amount;
+            if fighter.hp > fighter.max_hp {
+                fighter.hp = fighter.max_hp;
+            }
         }
     }
 
@@ -80,11 +117,15 @@ impl Object {
         // Apply damage if possible
         if let Some(fighter) = self.fighter.as_mut() {
             if damage > 0 {
-                fighter.hp -= damage;
+                if fighter.hp - damage < 0 {
+                    fighter.hp = 0;
+                } else {
+                    fighter.hp -= damage;
+                }
             }
         }
         if let Some(fighter) = self.fighter {
-            if fighter.hp <= 0 {
+            if fighter.hp == 0 {
                 self.alive = false;
                 fighter.on_death.callback(self, game);
             }
@@ -92,7 +133,7 @@ impl Object {
     }
 
     pub fn attack(&mut self, target: &mut Object, game: &mut Game) {
-        // Simple attack formula for damange
+        // Simple attack formula for damage
         let damage = self.fighter
             .map_or(0, |f| f.power) - target.fighter.map_or(0, |f| f.defense);
         if damage > 0 {
@@ -132,6 +173,30 @@ impl Object {
                 GREEN,
             );
             game.inventory.push(item);
+        }
+    }
+
+    pub fn use_item(inventory_id: usize, tcod: &mut Tcod, game: &mut Game, objects: &mut [Object]) {
+        use Item::*;
+        // Just call the "use_function" if it is defined
+        if let Some(item) = game.inventory[inventory_id].item {
+            let on_use = match item {
+                Heal => cast_heal,
+            };
+            match on_use(inventory_id, tcod, game, objects) {
+                UseResult::UsedUp => {
+                    // Destroy after use, unless it was cancelled for some reason
+                    game.inventory.remove(inventory_id);
+                }
+                UseResult::Cancelled => {
+                    game.messages.add("Cancelled", WHITE);
+                }
+            }
+        } else {
+            game.messages.add(
+                format!("The {} cannot be used.", game.inventory[inventory_id].name),
+                WHITE,
+            );
         }
     }
 }
