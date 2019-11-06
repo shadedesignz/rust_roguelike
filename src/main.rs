@@ -11,7 +11,7 @@ mod log;
 
 use object::Object;
 use map::{Game, MAP_WIDTH, MAP_HEIGHT, COLOR_DARK_GROUND, COLOR_DARK_WALL};
-use crate::map::{TORCH_RADIUS, FOV_LIGHT_WALLS, FOV_ALGORITHM, COLOR_LIGHT_WALL, COLOR_LIGHT_GROUND, PLAYER, inventory_menu, Map};
+use crate::map::{TORCH_RADIUS, FOV_LIGHT_WALLS, FOV_ALGORITHM, COLOR_LIGHT_WALL, COLOR_LIGHT_GROUND, PLAYER, inventory_menu, Map, menu};
 use crate::object::PlayerAction;
 use crate::object::PlayerAction::*;
 use crate::ai::{Fighter, ai_take_turn, mut_two, DeathCallback};
@@ -284,6 +284,9 @@ fn new_game(tcod: &mut Tcod) -> (Game, Vec<Object>) {
 }
 
 pub fn initialize_fov(tcod: &mut Tcod, map: &Map) {
+    // Unexplored areas start black
+    tcod.con.clear();
+
     // Create the FOV map, according to the generated map
     for y in 0..MAP_HEIGHT {
         for x in 0..MAP_WIDTH {
@@ -311,11 +314,11 @@ fn play_game(tcod: &mut Tcod, game: &mut Game, objects: &mut Vec<Object>) {
         }
 
         let fov_recompute = previous_player_position != (objects[PLAYER].pos());
-        render_all(&mut tcod, &mut game, &objects, fov_recompute);
+        render_all(tcod, game, &objects, fov_recompute);
         tcod.root.flush();
 
         previous_player_position = objects[PLAYER].pos();
-        let player_action = handle_keys(&mut tcod, &mut game, &mut objects);
+        let player_action = handle_keys(tcod, game, objects);
         if player_action == Exit {
             break;
         }
@@ -324,9 +327,56 @@ fn play_game(tcod: &mut Tcod, game: &mut Game, objects: &mut Vec<Object>) {
         if objects[PLAYER].alive && player_action != DidntTakeTurn {
             for id in 0..objects.len() {
                 if objects[id].ai.is_some() {
-                    ai_take_turn(id, &tcod, &mut game, &mut objects);
+                    ai_take_turn(id, &tcod, game, objects);
                 }
             }
+        }
+    }
+}
+
+fn main_menu(tcod: &mut Tcod) {
+    let img = tcod::image::Image::from_file("menu_background.png")
+        .ok()
+        .expect("Background image not found");
+
+    while !tcod.root.window_closed() {
+        // Show the background image, at twice the regular console resolution
+        tcod::image::blit_2x(&img, (0, 0), (-1, -1), &mut tcod.root, (0, 0));
+
+        tcod.root.set_default_foreground(LIGHT_YELLOW);
+        tcod.root.print_ex(
+            SCREEN_WIDTH / 2,
+            SCREEN_HEIGHT / 2 - 4,
+            BackgroundFlag::None,
+            TextAlignment::Center,
+            "TOMBS OF THE ANCIENT KINGS",
+        );
+        tcod.root.print_ex(
+            SCREEN_WIDTH / 2,
+            SCREEN_HEIGHT - 2,
+            BackgroundFlag::None,
+            TextAlignment::Center,
+            "By Yours Truly",
+        );
+
+        // Show options and wait for the player's choice
+        let choices = &[
+            "Play a New Game",
+            "Continue Last Game",
+            "Quit"
+        ];
+        let choice = menu("", choices, 24, &mut tcod.root);
+
+        match choice {
+            Some(0) => {
+                let (mut game, mut objects) = new_game(tcod);
+                play_game(tcod, &mut game, &mut objects);
+            },
+            Some(2) => {
+                // Quit
+                break;
+            },
+            _ => {}
         }
     }
 }
@@ -350,6 +400,5 @@ fn main() {
         mouse: Default::default(),
     };
 
-    let (mut game, mut object) = new_game(&mut tcod);
-    play_game(&mut tcod, &mut game, &mut objects);
+    main_menu(&mut tcod);
 }
