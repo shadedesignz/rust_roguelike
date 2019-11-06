@@ -5,7 +5,9 @@ use std::cmp;
 use tcod::colors::{DARK_RED, ORANGE, RED};
 use rand::Rng;
 
-#[derive(Clone, Copy, PartialEq, Debug)]
+use serde::{Deserialize, Serialize};
+
+#[derive(Clone, Copy, PartialEq, Debug, Serialize, Deserialize)]
 pub enum DeathCallback {
     Player,
     Monster,
@@ -44,7 +46,7 @@ pub fn monster_death(monster: &mut Object, game: &mut Game) {
     monster.name = format!("Remains of {}", monster.name);
 }
 
-#[derive(Clone, Copy, PartialEq, Debug)]
+#[derive(Clone, Copy, PartialEq, Debug, Serialize, Deserialize)]
 pub struct Fighter {
     pub max_hp: i32,
     pub hp: i32,
@@ -53,7 +55,7 @@ pub struct Fighter {
     pub on_death: DeathCallback,
 }
 
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub enum Ai {
     Basic,
     Confused {

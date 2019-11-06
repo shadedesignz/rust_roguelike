@@ -9,6 +9,8 @@ use tcod::console::{Root, Offscreen, blit};
 use crate::{SCREEN_HEIGHT, SCREEN_WIDTH};
 use tcod::colors::WHITE;
 
+use serde::{Deserialize, Serialize};
+
 pub const PLAYER: usize = 0;
 
 pub const MAP_WIDTH: i32 = 80;
@@ -40,7 +42,7 @@ pub const ROOM_MAX_SIZE: i32 = 10;
 pub const ROOM_MIN_SIZE: i32 = 6;
 pub const MAX_ROOMS: i32 = 30;
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub struct Tile {
     pub blocked: bool,
     pub block_sight: bool,
@@ -223,6 +225,7 @@ pub fn inventory_menu(inventory: &[Object], header: &str, root: &mut Root) -> Op
     }
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct Game {
     pub map: Map,
     pub messages: Messages,

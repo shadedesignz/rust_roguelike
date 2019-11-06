@@ -6,6 +6,8 @@ use crate::{Tcod, render_all};
 use tcod::input::Event;
 use rand::Rng;
 
+use serde::{Deserialize, Serialize};
+
 const MAX_ROOM_MONSTERS: i32 = 3;
 const MAX_ROOM_ITEMS: i32 = 2;
 const HEAL_AMOUNT: i32 = 4;
@@ -26,7 +28,7 @@ pub enum PlayerAction {
     Exit
 }
 
-#[derive(Clone, Copy, PartialEq, Debug)]
+#[derive(Clone, Copy, PartialEq, Debug, Serialize, Deserialize)]
 pub enum Item {
     Heal,
     Lightning,
@@ -206,7 +208,7 @@ fn closest_monster(tcod: &Tcod, objects: &[Object], max_range: i32) -> Option<us
     closest_enemy
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Object {
     pub x: i32,
     pub y: i32,

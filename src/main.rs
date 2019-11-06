@@ -3,6 +3,10 @@ use tcod::console::*;
 use tcod::input::{self, Event, Key, Mouse};
 use tcod::map::{Map as FovMap};
 
+use std::error::Error;
+use std::fs::File;
+use std::io::{Read, Write};
+
 mod object;
 mod map;
 mod ai;
@@ -11,7 +15,7 @@ mod log;
 
 use object::Object;
 use map::{Game, MAP_WIDTH, MAP_HEIGHT, COLOR_DARK_GROUND, COLOR_DARK_WALL};
-use crate::map::{TORCH_RADIUS, FOV_LIGHT_WALLS, FOV_ALGORITHM, COLOR_LIGHT_WALL, COLOR_LIGHT_GROUND, PLAYER, inventory_menu, Map, menu};
+use crate::map::*;
 use crate::object::PlayerAction;
 use crate::object::PlayerAction::*;
 use crate::ai::{Fighter, ai_take_turn, mut_two, DeathCallback};
@@ -300,6 +304,13 @@ pub fn initialize_fov(tcod: &mut Tcod, map: &Map) {
     }
 }
 
+fn save_game(game: &Game, objects: &[Object]) -> Result<(), Box<dyn Error>> {
+    let save_data = serde_json::to_string(&(game, objects))?;
+    let mut file = File::create("savegame")?;
+    file.write_all(save_data.as_bytes())?;
+    Ok(())
+}
+
 fn play_game(tcod: &mut Tcod, game: &mut Game, objects: &mut Vec<Object>) {
     // Force FOV to "recompute" the first time through the game loop
     let mut previous_player_position = (-1, -1);
@@ -320,6 +331,7 @@ fn play_game(tcod: &mut Tcod, game: &mut Game, objects: &mut Vec<Object>) {
         previous_player_position = objects[PLAYER].pos();
         let player_action = handle_keys(tcod, game, objects);
         if player_action == Exit {
+            save_game(game, objects).unwrap();
             break;
         }
 
@@ -332,6 +344,14 @@ fn play_game(tcod: &mut Tcod, game: &mut Game, objects: &mut Vec<Object>) {
             }
         }
     }
+}
+
+fn load_game() -> Result<(Game, Vec<Object>), Box<dyn Error>> {
+    let mut json_save_state = String::new();
+    let mut file = File::open("savegame")?;
+    file.read_to_string(&mut json_save_state)?;
+    let result = serde_json::from_str::<(Game, Vec<Object>)>(&json_save_state)?;
+    Ok(result)
 }
 
 fn main_menu(tcod: &mut Tcod) {
@@ -372,6 +392,19 @@ fn main_menu(tcod: &mut Tcod) {
                 let (mut game, mut objects) = new_game(tcod);
                 play_game(tcod, &mut game, &mut objects);
             },
+            Some(1) => {
+                // Load game
+                match load_game() {
+                    Ok((mut game, mut objects)) => {
+                        initialize_fov(tcod, &game.map);
+                        play_game(tcod, &mut game, &mut objects);
+                    },
+                    Err(_e) => {
+                        msgbox("\nNo saved game to load.\n", 24, &mut tcod.root);
+                        continue;
+                    }
+                }
+            },
             Some(2) => {
                 // Quit
                 break;
@@ -379,6 +412,11 @@ fn main_menu(tcod: &mut Tcod) {
             _ => {}
         }
     }
+}
+
+fn msgbox(text: &str, width: i32, root: &mut Root) {
+    let options: &[&str] = &[];
+    menu(text, options, width, root);
 }
 
 fn main() {
