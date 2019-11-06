@@ -1,6 +1,6 @@
 use tcod::colors::*;
 use tcod::console::*;
-use tcod::input::{self, Event, Key};
+use tcod::input::{self, Event, Key, Mouse};
 use tcod::map::{Map as FovMap};
 
 mod object;
@@ -31,6 +31,7 @@ pub struct Tcod {
     pub panel: Offscreen,
     pub fov: FovMap,
     pub key: Key,
+    pub mouse: Mouse,
 }
 
 fn render_all(tcod: &mut Tcod, game: &mut Game, objects: &[Object], fov_recompute: bool) {
@@ -110,6 +111,15 @@ fn render_all(tcod: &mut Tcod, game: &mut Game, objects: &[Object], fov_recomput
         DARKER_RED,
     );
 
+    tcod.panel.set_default_foreground(LIGHT_GREY);
+    tcod.panel.print_ex(
+        1,
+        0,
+        BackgroundFlag::None,
+        TextAlignment::Left,
+        get_names_under_mouse(tcod.mouse, objects, &tcod.fov)
+    );
+
     blit(
         &tcod.panel,
         (0, 0),
@@ -131,7 +141,7 @@ fn render_all(tcod: &mut Tcod, game: &mut Game, objects: &[Object], fov_recomput
     );
 }
 
-fn player_move_or_attack(dx: i32, dy: i32, game: &mut Game, objects: &mut [Object]) {
+fn player_move_or_attack(dx: i32, dy: i32, game: &mut Game, objects: &mut [Object]) -> PlayerAction {
     // Coords the player is moving to/attacking
     let x = objects[PLAYER].x + dx;
     let y = objects[PLAYER].y + dy;
@@ -151,6 +161,8 @@ fn player_move_or_attack(dx: i32, dy: i32, game: &mut Game, objects: &mut [Objec
             Object::move_by(PLAYER, dx, dy, &game.map, objects);
         }
     }
+
+    TookTurn
 }
 
 fn handle_keys(tcod: &mut Tcod, game: &mut Game, objects: &mut Vec<Object>) -> PlayerAction {
@@ -159,21 +171,21 @@ fn handle_keys(tcod: &mut Tcod, game: &mut Game, objects: &mut Vec<Object>) -> P
     let player_alive = objects[PLAYER].alive;
     match (tcod.key, tcod.key.text(), player_alive) {
         // Movement
-        (Key { code: Up, .. }, _, true) => {
-            player_move_or_attack(0, -1, game, objects);
-            TookTurn
-        },
-        (Key { code: Down, .. }, _, true) => {
-            player_move_or_attack(0, 1, game, objects);
-            TookTurn
-        },
-        (Key { code: Left, .. }, _, true) => {
-            player_move_or_attack(-1, 0, game, objects);
-            TookTurn
-        },
-        (Key { code: Right, .. }, _, true) => {
-            player_move_or_attack(1, 0, game, objects);
-            TookTurn
+        (Key { code: Up, .. }, _, true) => player_move_or_attack(0, -1, game, objects),
+        (Key { code: Down, .. }, _, true) => player_move_or_attack(0, 1, game, objects),
+        (Key { code: Left, .. }, _, true) => player_move_or_attack(-1, 0, game, objects),
+        (Key { code: Right, .. }, _, true) => player_move_or_attack(1, 0, game, objects),
+        (Key { code: Text, ..}, "d", true) => {
+            // Show the inventory; If an item is selected, drop it
+            let inventory_index = inventory_menu(
+                &game.inventory,
+                "Press the key next to an item to drop it, or an other to cancel.\n'",
+                &mut tcod.root,
+            );
+            if let Some(inventory_index) = inventory_index {
+                drop_item(inventory_index, game, objects);
+            }
+            DidntTakeTurn
         },
         (Key { code: Text, .. }, "g", true) => {
             // Pick up an item
@@ -219,6 +231,29 @@ fn handle_keys(tcod: &mut Tcod, game: &mut Game, objects: &mut Vec<Object>) -> P
     }
 }
 
+fn get_names_under_mouse(mouse: Mouse, objects: &[Object], fov_map: &FovMap) -> String {
+    let (x, y) = (mouse.cx as i32, mouse.cy as i32);
+
+    // Create a list with the names of all objects at the mouse's coordinates and in FOV
+    let names = objects
+        .iter()
+        .filter(|obj| obj.pos() == (x, y) && fov_map.is_in_fov(obj.x, obj.y))
+        .map(|obj| obj.name.clone())
+        .collect::<Vec<_>>();
+
+    names.join(", ")
+}
+
+fn drop_item(inventory_id: usize, game: &mut Game, objects: &mut Vec<Object>) {
+    let mut item = game.inventory.remove(inventory_id);
+    item.set_pos(objects[PLAYER].x, objects[PLAYER].y);
+    game.messages.add(
+        format!("You dropped a {}.", item.name),
+        YELLOW
+    );
+    objects.push(item);
+}
+
 fn main() {
     tcod::system::set_fps(LIMIT_FPS);
 
@@ -235,6 +270,7 @@ fn main() {
         panel: Offscreen::new(SCREEN_WIDTH, PANEL_HEIGHT),
         fov: FovMap::new(MAP_WIDTH, MAP_HEIGHT),
         key: Default::default(),
+        mouse: Default::default(),
     };
 
     let mut player = Object::new(0, 0, '@', "Player", WHITE, true);
@@ -273,7 +309,8 @@ fn main() {
     while !tcod.root.window_closed() {
         tcod.con.clear();
 
-        match input::check_for_event(input::KEY_PRESS) {
+        match input::check_for_event(input::KEY_PRESS | input::MOUSE) {
+            Some((_, Event::Mouse(m))) => tcod.mouse = m,
             Some((_, Event::Key(k))) => tcod.key = k,
             _ => tcod.key = Default::default(),
         }

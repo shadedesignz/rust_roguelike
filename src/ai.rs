@@ -3,6 +3,7 @@ use crate::object::Object;
 use crate::Tcod;
 use std::cmp;
 use tcod::colors::{DARK_RED, ORANGE, RED};
+use rand::Rng;
 
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum DeathCallback {
@@ -55,6 +56,10 @@ pub struct Fighter {
 #[derive(Clone, PartialEq, Debug)]
 pub enum Ai {
     Basic,
+    Confused {
+        previous_ai: Box<Ai>,
+        num_turns: i32,
+    }
 }
 
 pub fn move_towards(id: usize, target_x: i32, target_y: i32, map: &Map, objects: &mut [Object]) {
@@ -68,6 +73,52 @@ pub fn move_towards(id: usize, target_x: i32, target_y: i32, map: &Map, objects:
 }
 
 pub fn ai_take_turn(monster_id: usize, tcod: &Tcod, game: &mut Game, objects: &mut [Object]) {
+    use Ai::*;
+    if let Some(ai) = objects[monster_id].ai.take() {
+        let new_ai = match ai {
+            Basic => ai_basic(monster_id, tcod, game, objects),
+            Confused {
+                previous_ai,
+                num_turns,
+            } => ai_confused(monster_id, tcod, game, objects, previous_ai, num_turns)
+        };
+        objects[monster_id].ai = Some(new_ai);
+    }
+}
+
+pub fn ai_confused(
+    monster_id: usize,
+    _tcod: &Tcod,
+    game: &mut Game,
+    objects: &mut [Object],
+    previous_ai: Box<Ai>,
+    num_turns: i32,
+) -> Ai {
+    if num_turns >= 0 {
+        // Still confused, move in a random direction and decrease the number of turns confused
+        Object::move_by(
+            monster_id,
+            rand::thread_rng().gen_range(-1, 2),
+            rand::thread_rng().gen_range(-1, 2),
+            &game.map,
+            objects,
+        );
+        Ai::Confused {
+            previous_ai,
+            num_turns: num_turns - 1,
+        }
+    } else {
+        // Restore the previous AI (this one will be deleted)
+        game.messages.add(
+            format!("The {} is no longer confused!", objects[monster_id].name),
+            RED,
+        );
+        *previous_ai
+    }
+}
+
+pub fn ai_basic(monster_id: usize, tcod: &Tcod, game: &mut Game, objects: &mut [Object]) -> Ai {
+    // A basic monster takes it's turn. If you can see it, it can see you
     let (monster_x, monster_y) = objects[monster_id].pos();
     if tcod.fov.is_in_fov(monster_x, monster_y) {
         if objects[monster_id].distance_to(&objects[PLAYER]) >= 2.0 {
@@ -80,6 +131,7 @@ pub fn ai_take_turn(monster_id: usize, tcod: &Tcod, game: &mut Game, objects: &m
             }
         }
     }
+    Ai::Basic
 }
 
 pub fn mut_two<T>(first_index: usize, second_index: usize, items: &mut [T]) -> (&mut T, &mut T) {

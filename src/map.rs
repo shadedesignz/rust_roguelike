@@ -16,7 +16,7 @@ pub const MAP_HEIGHT: i32 = 43;
 
 pub const FOV_ALGORITHM: FovAlgorithm = FovAlgorithm::Basic;
 pub const FOV_LIGHT_WALLS: bool = true;
-pub const TORCH_RADIUS: i32 = 10;
+pub const TORCH_RADIUS: i32 = 5;
 
 pub const COLOR_DARK_WALL: Color = Color { r: 0, g: 0, b: 100 };
 pub const COLOR_LIGHT_WALL: Color = Color {
