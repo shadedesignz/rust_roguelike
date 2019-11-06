@@ -126,9 +126,7 @@ pub fn ai_basic(monster_id: usize, tcod: &Tcod, game: &mut Game, objects: &mut [
             move_towards(monster_id, player_x, player_y, &game.map, objects);
         } else if objects[PLAYER].fighter.map_or(false, |f| f.hp > 0) {
             let (monster, player) = mut_two(monster_id, PLAYER, objects);
-            if monster.can_attack(&player) {
-                monster.attack(player, game);
-            }
+            monster.attack(player, game);
         }
     }
     Ai::Basic

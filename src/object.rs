@@ -266,15 +266,6 @@ impl Object {
         self.y = y;
     }
 
-
-    pub fn can_attack(&self, other: &Object) -> bool {
-        let dx = other.x - self.x;
-        let dy = other.y - self.y;
-        let in_range = ((dx.pow(2) + dy.pow(2)) as f32).sqrt() < 2.0;
-        let is_not_diagonal = other.x == self.x || other.y == self.y;
-        in_range && is_not_diagonal
-    }
-
     pub fn distance_to(&self, other: &Object) -> f32 {
         let dx = other.x - self.x;
         let dy = other.y - self.y;
