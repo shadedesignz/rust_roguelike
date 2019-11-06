@@ -11,7 +11,7 @@ mod log;
 
 use object::Object;
 use map::{Game, MAP_WIDTH, MAP_HEIGHT, COLOR_DARK_GROUND, COLOR_DARK_WALL};
-use crate::map::{TORCH_RADIUS, FOV_LIGHT_WALLS, FOV_ALGORITHM, COLOR_LIGHT_WALL, COLOR_LIGHT_GROUND, PLAYER, inventory_menu};
+use crate::map::{TORCH_RADIUS, FOV_LIGHT_WALLS, FOV_ALGORITHM, COLOR_LIGHT_WALL, COLOR_LIGHT_GROUND, PLAYER, inventory_menu, Map};
 use crate::object::PlayerAction;
 use crate::object::PlayerAction::*;
 use crate::ai::{Fighter, ai_take_turn, mut_two, DeathCallback};
@@ -254,25 +254,8 @@ fn drop_item(inventory_id: usize, game: &mut Game, objects: &mut Vec<Object>) {
     objects.push(item);
 }
 
-fn main() {
-    tcod::system::set_fps(LIMIT_FPS);
-
-    let root = Root::initializer()
-        .font("arial10x10.png", FontLayout::Tcod)
-        .font_type(FontType::Greyscale)
-        .size(SCREEN_WIDTH, SCREEN_HEIGHT)
-        .title("Rust Roguelike")
-        .init();
-
-    let mut tcod = Tcod {
-        root,
-        con: Offscreen::new(MAP_WIDTH, MAP_HEIGHT),
-        panel: Offscreen::new(SCREEN_WIDTH, PANEL_HEIGHT),
-        fov: FovMap::new(MAP_WIDTH, MAP_HEIGHT),
-        key: Default::default(),
-        mouse: Default::default(),
-    };
-
+fn new_game(tcod: &mut Tcod) -> (Game, Vec<Object>) {
+    // Create object representing the player
     let mut player = Object::new(0, 0, '@', "Player", WHITE, true);
     player.alive = true;
     player.fighter = Some(Fighter {
@@ -283,9 +266,13 @@ fn main() {
         on_death: DeathCallback::Player,
     });
 
+    // Create an object list
     let mut objects = vec![player];
 
+    // Create the game
     let mut game = Game::new(&mut objects);
+
+    initialize_fov(tcod, &game.map);
 
     // Add a welcome message
     game.messages.add(
@@ -293,17 +280,25 @@ fn main() {
         RED
     );
 
+    (game, objects)
+}
+
+pub fn initialize_fov(tcod: &mut Tcod, map: &Map) {
+    // Create the FOV map, according to the generated map
     for y in 0..MAP_HEIGHT {
         for x in 0..MAP_WIDTH {
             tcod.fov.set(
                 x,
                 y,
-                !game.map[x as usize][y as usize].block_sight,
-                !game.map[x as usize][y as usize].blocked,
+                !map[x as usize][y as usize].block_sight,
+                !map[x as usize][y as usize].blocked,
             );
         }
     }
+}
 
+fn play_game(tcod: &mut Tcod, game: &mut Game, objects: &mut Vec<Object>) {
+    // Force FOV to "recompute" the first time through the game loop
     let mut previous_player_position = (-1, -1);
 
     while !tcod.root.window_closed() {
@@ -334,4 +329,27 @@ fn main() {
             }
         }
     }
+}
+
+fn main() {
+    tcod::system::set_fps(LIMIT_FPS);
+
+    let root = Root::initializer()
+        .font("arial10x10.png", FontLayout::Tcod)
+        .font_type(FontType::Greyscale)
+        .size(SCREEN_WIDTH, SCREEN_HEIGHT)
+        .title("Rust Roguelike")
+        .init();
+
+    let mut tcod = Tcod {
+        root,
+        con: Offscreen::new(MAP_WIDTH, MAP_HEIGHT),
+        panel: Offscreen::new(SCREEN_WIDTH, PANEL_HEIGHT),
+        fov: FovMap::new(MAP_WIDTH, MAP_HEIGHT),
+        key: Default::default(),
+        mouse: Default::default(),
+    };
+
+    let (mut game, mut object) = new_game(&mut tcod);
+    play_game(&mut tcod, &mut game, &mut objects);
 }
