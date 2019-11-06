@@ -1,7 +1,7 @@
-use tcod::console::Offscreen;
-use tcod::{Color, Console, BackgroundFlag, TextAlignment};
-use tcod::colors::WHITE;
 use crate::SCREEN_HEIGHT;
+use tcod::colors::WHITE;
+use tcod::console::Offscreen;
+use tcod::{BackgroundFlag, Color, Console, TextAlignment};
 
 pub const BAR_WIDTH: i32 = 20;
 pub const PANEL_HEIGHT: i32 = 7;

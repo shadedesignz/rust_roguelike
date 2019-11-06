@@ -1,9 +1,9 @@
-use crate::map::{Map, Game, PLAYER};
+use crate::map::{Game, Map, PLAYER};
 use crate::object::Object;
 use crate::Tcod;
+use rand::Rng;
 use std::cmp;
 use tcod::colors::{DARK_RED, ORANGE, RED};
-use rand::Rng;
 
 use serde::{Deserialize, Serialize};
 
@@ -61,7 +61,7 @@ pub enum Ai {
     Confused {
         previous_ai: Box<Ai>,
         num_turns: i32,
-    }
+    },
 }
 
 pub fn move_towards(id: usize, target_x: i32, target_y: i32, map: &Map, objects: &mut [Object]) {
@@ -82,7 +82,7 @@ pub fn ai_take_turn(monster_id: usize, tcod: &Tcod, game: &mut Game, objects: &m
             Confused {
                 previous_ai,
                 num_turns,
-            } => ai_confused(monster_id, tcod, game, objects, previous_ai, num_turns)
+            } => ai_confused(monster_id, tcod, game, objects, previous_ai, num_turns),
         };
         objects[monster_id].ai = Some(new_ai);
     }

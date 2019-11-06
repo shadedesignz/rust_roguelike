@@ -4,13 +4,13 @@ use tcod::Color;
 
 pub const MSG_X: i32 = BAR_WIDTH + 2;
 pub const MSG_WIDTH: i32 = SCREEN_WIDTH - BAR_WIDTH - 2;
-pub const MSG_HEIGHT: usize= PANEL_HEIGHT as usize - 1;
+pub const MSG_HEIGHT: usize = PANEL_HEIGHT as usize - 1;
 
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize)]
 pub struct Messages {
-    pub messages: Vec<(String, Color)>
+    pub messages: Vec<(String, Color)>,
 }
 
 impl Messages {

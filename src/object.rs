@@ -1,175 +1,29 @@
-use tcod::{Color, Console, BackgroundFlag, colors, input};
-use crate::map::{Rect, Map, Game, PLAYER, MAP_WIDTH, MAP_HEIGHT};
-use crate::ai::{Fighter, Ai, DeathCallback};
-use tcod::colors::*;
-use crate::{Tcod, render_all};
-use tcod::input::Event;
+use crate::ai::{Ai, DeathCallback, Fighter};
+use crate::map::{Game, Map, Rect, MAP_HEIGHT, MAP_WIDTH, PLAYER};
+use crate::{render_all, Tcod};
 use rand::Rng;
+use tcod::colors::*;
+use tcod::input::Event;
 
+use crate::item::Item;
 use serde::{Deserialize, Serialize};
+use tcod::{input, BackgroundFlag, Console};
 
 const MAX_ROOM_MONSTERS: i32 = 3;
 const MAX_ROOM_ITEMS: i32 = 2;
-const HEAL_AMOUNT: i32 = 4;
-
-const LIGHTNING_DAMAGE: i32 = 40;
-const LIGHTNING_RANGE: i32 = 5;
-
-const CONFUSE_RANGE: i32 = 8;
-const CONFUSE_NUM_TURNS: i32 = 10;
-
-const FIREBALL_RADIUS: i32 = 3;
-const FIREBALL_DAMAGE: i32 = 12;
 
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum PlayerAction {
     TookTurn,
     DidntTakeTurn,
-    Exit
+    Exit,
 }
 
-#[derive(Clone, Copy, PartialEq, Debug, Serialize, Deserialize)]
-pub enum Item {
-    Heal,
-    Lightning,
-    Confuse,
-    Fireball,
-}
-
-pub enum UseResult {
-    UsedUp,
-    Cancelled,
-}
-
-fn cast_heal(
-    _inventory_id: usize,
-    _tcod: &mut Tcod,
-    game: &mut Game,
-    objects: &mut [Object]
-) -> UseResult {
-    // Heal the player
-    if let Some(fighter) = objects[PLAYER].fighter {
-        if fighter.hp == fighter.max_hp {
-            game.messages.add("You are already at full health.", RED);
-            return UseResult::Cancelled;
-        }
-        game.messages.add(
-            "Your wounds start to feel better!", LIGHT_VIOLET
-        );
-        objects[PLAYER].heal(HEAL_AMOUNT);
-        return UseResult::UsedUp;
-    }
-    UseResult::Cancelled
-}
-
-fn cast_lightning(
-    _inventory_id: usize,
-    tcod: &mut Tcod,
-    game: &mut Game,
-    objects: &mut [Object],
-) -> UseResult {
-    // Find closest enemy (inside a maximum range and damage it)
-    let monster_id = closest_monster(tcod, objects, LIGHTNING_RANGE);
-    if let Some(monster_id) = monster_id {
-        // Zap it!
-        game.messages.add(
-            format!(
-                "A lightning bolt strikes the {} with a loud thunder! \
-                The damage is {} hit poiints.",
-                objects[monster_id].name, LIGHTNING_DAMAGE
-            ),
-            LIGHT_BLUE
-        );
-        objects[monster_id].take_damage(LIGHTNING_DAMAGE, game);
-        UseResult::UsedUp
-    } else {
-        // No enemy found within maximum range
-        game.messages.add(
-            "No enemy is close enough to strike.",
-            RED
-        );
-        UseResult::Cancelled
-    }
-}
-
-fn cast_confuse(
-    _inventory_id: usize,
-    tcod: &mut Tcod,
-    game: &mut Game,
-    objects: &mut [Object],
-) -> UseResult {
-    // Find closest enemy in-range and confuse it
-    let monster_id = target_monster(tcod, game, objects, Some(CONFUSE_RANGE as f32));
-    if let Some(monster_id) = monster_id {
-        let old_ai = objects[monster_id].ai.take().unwrap_or(Ai::Basic);
-        // Replace the monster's AI with a "confused" one
-        objects[monster_id].ai = Some(Ai::Confused {
-            previous_ai: Box::new(old_ai),
-            num_turns: CONFUSE_NUM_TURNS,
-        });
-        game.messages.add(
-            format!(
-                "The eyes of {} look vacant, as he starts to stumble around!",
-                objects[monster_id].name,
-            ),
-            LIGHT_GREEN
-        );
-        UseResult::UsedUp
-    } else {
-        // No enemy found within max range
-        game.messages.add(
-            "No enemy is close enough to strike.",
-            RED,
-        );
-        UseResult::Cancelled
-    }
-}
-
-pub fn cast_fireball(
-    _inventory_id: usize,
-    tcod: &mut Tcod,
-    game: &mut Game,
-    objects: &mut [Object],
-) -> UseResult {
-    // Ask the player for a target tile to throw a fireball at
-    game.messages.add(
-        "Left-click a target tile for the fireball, or right-click to cancel",
-        LIGHT_CYAN,
-    );
-    let (x, y) = match target_tile(tcod, game, objects, None) {
-        Some(tile_pos) => tile_pos,
-        None => return UseResult::Cancelled,
-    };
-    game.messages.add(
-        format!(
-            "The fireball explodes, burning everything within {} tiles!",
-            FIREBALL_RADIUS,
-        ),
-        ORANGE,
-    );
-
-    for (id, obj) in objects.iter_mut().enumerate() {
-        if obj.distance(x, y) <= FIREBALL_RADIUS as f32 && obj.fighter.is_some() && id != PLAYER {
-            game.messages.add(
-                format!(
-                    "The {} gets burned for {} hit points",
-                    obj.name,
-                    FIREBALL_DAMAGE,
-                ),
-                ORANGE,
-            );
-            obj.take_damage(FIREBALL_DAMAGE, game);
-        }
-    }
-
-    UseResult::UsedUp
-}
-
-fn target_monster(
+pub fn target_monster(
     tcod: &mut Tcod,
     game: &mut Game,
     objects: &[Object],
-    max_range: Option<f32>
+    max_range: Option<f32>,
 ) -> Option<usize> {
     loop {
         match target_tile(tcod, game, objects, max_range) {
@@ -186,7 +40,7 @@ fn target_monster(
     }
 }
 
-fn closest_monster(tcod: &Tcod, objects: &[Object], max_range: i32) -> Option<usize> {
+pub fn closest_monster(tcod: &Tcod, objects: &[Object], max_range: i32) -> Option<usize> {
     let mut closest_enemy = None;
     // Start with (slightly more than) maximum range
     let mut closest_dist = (max_range + 1) as f32;
@@ -195,7 +49,8 @@ fn closest_monster(tcod: &Tcod, objects: &[Object], max_range: i32) -> Option<us
         if id != PLAYER
             && object.fighter.is_some()
             && object.ai.is_some()
-            && tcod.fov.is_in_fov(object.x, object.y) {
+            && tcod.fov.is_in_fov(object.x, object.y)
+        {
             // Calculate distance between this object and the player
             let dist = objects[PLAYER].distance_to(object);
             if dist < closest_dist {
@@ -295,15 +150,11 @@ impl Object {
 
     pub fn attack(&mut self, target: &mut Object, game: &mut Game) {
         // Simple attack formula for damage
-        let damage = self.fighter
-            .map_or(0, |f| f.power) - target.fighter.map_or(0, |f| f.defense);
+        let damage = self.fighter.map_or(0, |f| f.power) - target.fighter.map_or(0, |f| f.defense);
         if damage > 0 {
             // Target takes damage
             game.messages.add(
-                format!(
-                    "{} attacks {} for {} hp",
-                    self.name, target.name, damage
-                ),
+                format!("{} attacks {} for {} hp", self.name, target.name, damage),
                 WHITE,
             );
             target.take_damage(damage, game);
@@ -320,52 +171,6 @@ impl Object {
 
     pub fn distance(&self, x: i32, y: i32) -> f32 {
         (((x - self.x).pow(2) + (y - self.y).pow(2)) as f32).sqrt()
-    }
-
-    pub fn pick_item_up(object_id: usize, game: &mut Game, objects: &mut  Vec<Object>) {
-        if game.inventory.len() >= 26 {
-            game.messages.add(
-                format!(
-                    "Your inventory is full, cannot pick up {}",
-                    objects[object_id].name,
-                ),
-                RED,
-            );
-        } else {
-            let item = objects.swap_remove(object_id);
-            game.messages.add(
-                format!("You picked up a {}!", item.name),
-                GREEN,
-            );
-            game.inventory.push(item);
-        }
-    }
-
-    pub fn use_item(inventory_id: usize, tcod: &mut Tcod, game: &mut Game, objects: &mut [Object]) {
-        use Item::*;
-        // Just call the "use_function" if it is defined
-        if let Some(item) = game.inventory[inventory_id].item {
-            let on_use = match item {
-                Heal => cast_heal,
-                Lightning => cast_lightning,
-                Confuse => cast_confuse,
-                Fireball => cast_fireball,
-            };
-            match on_use(inventory_id, tcod, game, objects) {
-                UseResult::UsedUp => {
-                    // Destroy after use, unless it was cancelled for some reason
-                    game.inventory.remove(inventory_id);
-                }
-                UseResult::Cancelled => {
-                    game.messages.add("Cancelled", WHITE);
-                }
-            }
-        } else {
-            game.messages.add(
-                format!("The {} cannot be used.", game.inventory[inventory_id].name),
-                WHITE,
-            );
-        }
     }
 }
 
@@ -424,7 +229,7 @@ pub fn place_objects(room: Rect, map: &Map, objects: &mut Vec<Object>) {
         if !is_blocked(x, y, map, objects) {
             // 0.8 = 80% chance of getting an orc
             let mut monster = if rand::random::<f32>() < 0.8 {
-                let mut orc = Object::new(x, y, 'o', "Orc", colors::DESATURATED_GREEN, true);
+                let mut orc = Object::new(x, y, 'o', "Orc", DESATURATED_GREEN, true);
                 orc.fighter = Some(Fighter {
                     max_hp: 10,
                     hp: 10,
@@ -435,7 +240,7 @@ pub fn place_objects(room: Rect, map: &Map, objects: &mut Vec<Object>) {
                 orc.ai = Some(Ai::Basic);
                 orc
             } else {
-                let mut troll = Object::new(x, y, 'T', "Troll", colors::DARKER_GREEN, true);
+                let mut troll = Object::new(x, y, 'T', "Troll", DARKER_GREEN, true);
                 troll.fighter = Some(Fighter {
                     max_hp: 16,
                     hp: 16,
@@ -470,14 +275,8 @@ pub fn place_objects(room: Rect, map: &Map, objects: &mut Vec<Object>) {
                 object
             } else if dice < 0.7 + 0.1 {
                 // Create a lightning bolt scroll (30% chance)
-                let mut object = Object::new(
-                    x,
-                    y,
-                    '#',
-                    "Scroll of Lightning Bolt",
-                    LIGHT_YELLOW,
-                    false,
-                );
+                let mut object =
+                    Object::new(x, y, '#', "Scroll of Lightning Bolt", LIGHT_YELLOW, false);
                 object.item = Some(Item::Lightning);
                 object
             } else if dice < 0.7 + 0.1 + 0.1 {
@@ -487,14 +286,7 @@ pub fn place_objects(room: Rect, map: &Map, objects: &mut Vec<Object>) {
                 object
             } else {
                 // Create a fireball scroll (10% chance)
-                let mut object = Object::new(
-                    x,
-                    y,
-                    '#',
-                    "Scroll of Fireball",
-                    LIGHT_YELLOW,
-                    false,
-                );
+                let mut object = Object::new(x, y, '#', "Scroll of Fireball", LIGHT_YELLOW, false);
                 object.item = Some(Item::Fireball);
                 object
             };

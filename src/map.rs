@@ -1,13 +1,13 @@
-use tcod::{Color, Console, BackgroundFlag, TextAlignment};
-use std::cmp;
-use rand::Rng;
-use crate::object::{Object, place_objects};
-use tcod::map::FovAlgorithm;
-use crate::map::TunnelDirection::{Horizontal, Vertical};
 use crate::log::Messages;
-use tcod::console::{Root, Offscreen, blit};
+use crate::map::TunnelDirection::{Horizontal, Vertical};
+use crate::object::{place_objects, Object};
 use crate::{SCREEN_HEIGHT, SCREEN_WIDTH};
+use rand::Rng;
+use std::cmp;
 use tcod::colors::WHITE;
+use tcod::console::{blit, Offscreen, Root};
+use tcod::map::FovAlgorithm;
+use tcod::{BackgroundFlag, Color, Console, TextAlignment};
 
 use serde::{Deserialize, Serialize};
 
@@ -118,8 +118,8 @@ fn create_tunnel(a1: i32, a2: i32, b: usize, dir: TunnelDirection, map: &mut Map
     let high = cmp::max(a1, a2) + 1;
     for a in low..high {
         match dir {
-            Horizontal => { map[a as usize][b] = Tile::empty() },
-            Vertical => { map[b][a as usize] = Tile::empty() },
+            Horizontal => map[a as usize][b] = Tile::empty(),
+            Vertical => map[b][a as usize] = Tile::empty(),
         }
     }
 }
@@ -134,7 +134,12 @@ fn create_vert_tunnel(y1: i32, y2: i32, x: i32, map: &mut Map) {
 
 pub type Map = Vec<Vec<Tile>>;
 
-pub fn menu<T: AsRef<str>>(header: &str, options: &[T], width: i32, root: &mut Root) -> Option<usize> {
+pub fn menu<T: AsRef<str>>(
+    header: &str,
+    options: &[T],
+    width: i32,
+    root: &mut Root,
+) -> Option<usize> {
     assert!(
         options.len() <= 26,
         "Cannot have a menu with more than 26 options."
@@ -172,22 +177,14 @@ pub fn menu<T: AsRef<str>>(header: &str, options: &[T], width: i32, root: &mut R
             header_height + index as i32,
             BackgroundFlag::None,
             TextAlignment::Left,
-            text
+            text,
         );
     }
 
     // Blit the contents of "window" to the root console
     let x = SCREEN_WIDTH / 2 - width / 2;
     let y = SCREEN_HEIGHT / 2 - height / 2;
-    blit(
-        &window,
-        (0, 0),
-        (width, height),
-        root,
-        (x, y),
-        1.0,
-        0.7
-    );
+    blit(&window, (0, 0), (width, height), root, (x, y), 1.0, 0.7);
 
     // Present the root console to the player and wait for a key-press
     root.flush();
