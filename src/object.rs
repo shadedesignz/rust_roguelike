@@ -7,8 +7,10 @@ use rand::Rng;
 use tcod::colors::*;
 use tcod::input::Event;
 
+use crate::equipment::{Equipment, Slot};
 use crate::game::Game;
 use crate::item::{from_dungeon_level, Item, Potion, Scroll, Transition};
+use crate::log::Messages;
 use serde::{Deserialize, Serialize};
 use tcod::{input, BackgroundFlag, Console};
 
@@ -128,6 +130,7 @@ pub struct Object {
     pub item: Option<Item>,
     pub always_visible: bool,
     pub level: i32,
+    pub equipment: Option<Equipment>,
 }
 
 impl Object {
@@ -145,6 +148,58 @@ impl Object {
             item: None,
             always_visible: false,
             level: 1,
+            equipment: None,
+        }
+    }
+
+    pub fn equip(&mut self, messages: &mut Messages) {
+        if self.item.is_none() {
+            messages.add(
+                format!("Can't equip {:?} because it's not an Item.", self),
+                RED,
+            );
+            return;
+        }
+        if let Some(ref mut equipment) = self.equipment {
+            if !equipment.equipped {
+                equipment.equipped = true;
+                messages.add(
+                    format!("Equipped {} on {}", self.name, equipment.slot),
+                    LIGHT_GREEN,
+                );
+            }
+        } else {
+            messages.add(
+                format!("Can't equip {:?} because it's not an Equipment Item.", self),
+                RED,
+            );
+        }
+    }
+
+    pub fn dequip(&mut self, messages: &mut Messages) {
+        if self.item.is_none() {
+            messages.add(
+                format!("Can't dequip {:?} because it's not an Item.", self),
+                RED,
+            );
+            return;
+        }
+        if let Some(ref mut equipment) = self.equipment {
+            if !equipment.equipped {
+                equipment.equipped = false;
+                messages.add(
+                    format!("Dequipped {} on {}", self.name, equipment.slot),
+                    LIGHT_YELLOW,
+                );
+            }
+        } else {
+            messages.add(
+                format!(
+                    "Can't dequip {:?} because it's not an Equipment Item.",
+                    self
+                ),
+                RED,
+            );
         }
     }
 
@@ -399,6 +454,7 @@ pub fn place_objects(room: Rect, map: &Map, objects: &mut Vec<Object>, level: u3
                 level,
             ),
         ),
+        (Item::Equipment, 1000),
     ];
     let item_choice = WeightedIndex::new(item_chances.iter().map(|item| item.1)).unwrap();
 
@@ -414,6 +470,16 @@ pub fn place_objects(room: Rect, map: &Map, objects: &mut Vec<Object>, level: u3
                 Item::Lightning => Scroll::new(x, y, "Lightning Bolt", Item::Lightning),
                 Item::Fireball => Scroll::new(x, y, "Fireball", Item::Fireball),
                 Item::Confuse => Scroll::new(x, y, "Confusion", Item::Confuse),
+                Item::Equipment => {
+                    // Create a sword
+                    let mut object = Object::new(x, y, '/', "Sword", SKY, false);
+                    object.item = Some(Item::Equipment);
+                    object.equipment = Some(Equipment {
+                        equipped: false,
+                        slot: Slot::RightHand,
+                    });
+                    object
+                }
             };
             item.always_visible = true;
             objects.push(item);

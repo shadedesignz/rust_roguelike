@@ -8,6 +8,7 @@ use std::fs::File;
 use std::io::{Read, Write};
 
 mod ai;
+mod equipment;
 mod game;
 mod gui;
 mod item;
@@ -346,6 +347,9 @@ fn get_names_under_mouse(mouse: Mouse, objects: &[Object], fov_map: &FovMap) -> 
 
 fn drop_item(inventory_id: usize, game: &mut Game, objects: &mut Vec<Object>) {
     let mut item = game.inventory.remove(inventory_id);
+    if item.equipment.is_some() {
+        item.dequip(&mut game.messages);
+    }
     item.set_pos(objects[PLAYER].x, objects[PLAYER].y);
     game.messages
         .add(format!("You dropped a {}.", item.name), YELLOW);

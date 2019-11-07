@@ -1,4 +1,5 @@
 use crate::ai::Ai;
+use crate::equipment::get_equipped_in_slot;
 use crate::game::Game;
 use crate::map::PLAYER;
 use crate::object::*;
@@ -23,10 +24,12 @@ pub enum Item {
     Lightning,
     Confuse,
     Fireball,
+    Equipment,
 }
 
 enum UseResult {
     UsedUp,
+    UsedAndKept,
     Cancelled,
 }
 
@@ -157,6 +160,28 @@ fn cast_fireball(
     UseResult::UsedUp
 }
 
+fn toggle_equipment(
+    inventory_id: usize,
+    _tcod: &mut Tcod,
+    game: &mut Game,
+    _objects: &mut [Object],
+) -> UseResult {
+    let equipment = match game.inventory[inventory_id].equipment {
+        Some(equipment) => equipment,
+        None => return UseResult::Cancelled,
+    };
+    if equipment.equipped {
+        game.inventory[inventory_id].dequip(&mut game.messages);
+    } else {
+        // If the slot is already being used, dequip whatever is there first
+        if let Some(current) = get_equipped_in_slot(equipment.slot, &game.inventory) {
+            game.inventory[current].dequip(&mut game.messages);
+        }
+        game.inventory[inventory_id].equip(&mut game.messages);
+    }
+    UseResult::UsedAndKept
+}
+
 pub fn use_item(inventory_id: usize, tcod: &mut Tcod, game: &mut Game, objects: &mut [Object]) {
     use Item::*;
     // Just call the "use_function" if it is defined
@@ -166,12 +191,15 @@ pub fn use_item(inventory_id: usize, tcod: &mut Tcod, game: &mut Game, objects: 
             Lightning => cast_lightning,
             Confuse => cast_confuse,
             Fireball => cast_fireball,
+            Equipment => toggle_equipment,
         };
         match on_use(inventory_id, tcod, game, objects) {
             UseResult::UsedUp => {
                 // Destroy after use, unless it was cancelled for some reason
                 game.inventory.remove(inventory_id);
             }
+            // Do nothing
+            UseResult::UsedAndKept => {}
             UseResult::Cancelled => {
                 game.messages.add("Cancelled", WHITE);
             }
@@ -197,7 +225,16 @@ pub fn pick_item_up(object_id: usize, game: &mut Game, objects: &mut Vec<Object>
         let item = objects.swap_remove(object_id);
         game.messages
             .add(format!("You picked up a {}!", item.name), GREEN);
+        let index = game.inventory.len();
+        let slot = item.equipment.map(|e| e.slot);
         game.inventory.push(item);
+
+        // Auto-equip item if the equipment slot is not used
+        if let Some(slot) = slot {
+            if get_equipped_in_slot(slot, &game.inventory).is_none() {
+                game.inventory[index].equip(&mut game.messages);
+            }
+        }
     }
 }
 
