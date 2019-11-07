@@ -17,9 +17,10 @@ mod map;
 mod object;
 
 use crate::ai::{ai_take_turn, mut_two, DeathCallback, Fighter};
+use crate::equipment::{Equipment, Slot};
 use crate::game::Game;
 use crate::gui::{render_bar, BAR_WIDTH, PANEL_HEIGHT, PANEL_Y};
-use crate::item::{pick_item_up, use_item};
+use crate::item::{pick_item_up, use_item, Item};
 use crate::log::{msgbox, MSG_HEIGHT, MSG_WIDTH, MSG_X};
 use crate::map::*;
 use crate::object::PlayerAction::*;
@@ -112,7 +113,7 @@ fn render_all(tcod: &mut Tcod, game: &mut Game, objects: &[Object], fov_recomput
 
     // Show player stats
     let hp = objects[PLAYER].fighter.map_or(0, |f| f.hp);
-    let max_hp = objects[PLAYER].fighter.map_or(0, |f| f.max_hp);
+    let max_hp = objects[PLAYER].max_hp(game);
     render_bar(
         &mut tcod.panel,
         1,
@@ -197,8 +198,8 @@ fn next_level(tcod: &mut Tcod, game: &mut Game, objects: &mut Vec<Object>) {
         "You take a moment to rest, and recover your strength.",
         VIOLET,
     );
-    let heal_hp = objects[PLAYER].fighter.map_or(0, |f| f.max_hp / 2);
-    objects[PLAYER].heal(heal_hp);
+    let heal_hp = objects[PLAYER].max_hp(game) / 2;
+    objects[PLAYER].heal(heal_hp, game);
 
     game.messages.add(
         "After a rare moment of peace, you descend deeper into \
@@ -270,7 +271,12 @@ fn handle_keys(tcod: &mut Tcod, game: &mut Game, objects: &mut Vec<Object>) -> P
                      Maximum HP: {}\n\
                      Attack: {}\n\
                      Defense: {}",
-                    level, fighter.xp, level_up_xp, fighter.max_hp, fighter.power, fighter.defense,
+                    level,
+                    fighter.xp,
+                    level_up_xp,
+                    player.max_hp(game),
+                    player.power(game),
+                    player.defense(game),
                 );
                 msgbox(&msg, CHARACTER_SCREEN_WIDTH, &mut tcod.root);
             }
@@ -361,10 +367,10 @@ fn new_game(tcod: &mut Tcod) -> (Game, Vec<Object>) {
     let mut player = Object::new(0, 0, '@', "Player", WHITE, true);
     player.alive = true;
     player.fighter = Some(Fighter {
-        max_hp: 100,
+        base_max_hp: 100,
         hp: 100,
-        defense: 1,
-        power: 4,
+        base_defense: 1,
+        base_power: 2,
         xp: 0,
         on_death: DeathCallback::Player,
     });
@@ -374,6 +380,18 @@ fn new_game(tcod: &mut Tcod) -> (Game, Vec<Object>) {
 
     // Create the game
     let mut game = Game::new(&mut objects);
+
+    // Initial equipment: dagger
+    let mut dagger = Object::new(0, 0, '-', "dagger", SKY, false);
+    dagger.item = Some(Item::Sword);
+    dagger.equipment = Some(Equipment {
+        equipped: true,
+        slot: Slot::LeftHand,
+        max_hp_bonus: 0,
+        defense_bonus: 0,
+        power_bonus: 2,
+    });
+    game.inventory.push(dagger);
 
     initialize_fov(tcod, &game.map);
 

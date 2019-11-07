@@ -6,6 +6,10 @@ use serde::{Deserialize, Serialize};
 pub struct Equipment {
     pub slot: Slot,
     pub equipped: bool,
+    // Can be negative if an item is cursed
+    pub power_bonus: i32,
+    pub defense_bonus: i32,
+    pub max_hp_bonus: i32,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]

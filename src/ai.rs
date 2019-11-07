@@ -55,10 +55,10 @@ fn monster_death(monster: &mut Object, game: &mut Game) {
 
 #[derive(Clone, Copy, PartialEq, Debug, Serialize, Deserialize)]
 pub struct Fighter {
-    pub max_hp: i32,
+    pub base_max_hp: i32,
     pub hp: i32,
-    pub defense: i32,
-    pub power: i32,
+    pub base_defense: i32,
+    pub base_power: i32,
     pub xp: i32,
     pub on_death: DeathCallback,
 }
