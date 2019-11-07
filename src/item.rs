@@ -200,3 +200,32 @@ pub fn pick_item_up(object_id: usize, game: &mut Game, objects: &mut Vec<Object>
         game.inventory.push(item);
     }
 }
+
+pub struct Potion;
+
+impl Potion {
+    pub fn new(x: i32, y: i32, name: &str, item: Item) -> Object {
+        let mut object = Object::new(x, y, '!', &format!("{} Potion", name), VIOLET, false);
+        object.item = Some(item);
+        object.always_visible = true;
+        object
+    }
+}
+
+pub struct Scroll;
+
+impl Scroll {
+    pub fn new(x: i32, y: i32, name: &str, item: Item) -> Object {
+        let mut object = Object::new(
+            x,
+            y,
+            '#',
+            &format!("Scroll of {}", name),
+            LIGHT_YELLOW,
+            false,
+        );
+        object.item = Some(item);
+        object.always_visible = true;
+        object
+    }
+}
