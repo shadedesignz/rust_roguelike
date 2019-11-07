@@ -8,6 +8,7 @@ use std::fs::File;
 use std::io::{Read, Write};
 
 mod ai;
+mod game;
 mod gui;
 mod item;
 mod log;
@@ -15,13 +16,13 @@ mod map;
 mod object;
 
 use crate::ai::{ai_take_turn, mut_two, DeathCallback, Fighter};
+use crate::game::Game;
 use crate::gui::{render_bar, BAR_WIDTH, PANEL_HEIGHT, PANEL_Y};
 use crate::item::{pick_item_up, use_item};
-use crate::log::{MSG_HEIGHT, MSG_WIDTH, MSG_X};
+use crate::log::{msgbox, MSG_HEIGHT, MSG_WIDTH, MSG_X};
 use crate::map::*;
 use crate::object::PlayerAction;
 use crate::object::PlayerAction::*;
-use map::{Game, COLOR_DARK_GROUND, COLOR_DARK_WALL, MAP_HEIGHT, MAP_WIDTH};
 use object::Object;
 
 // Actual window size
@@ -414,11 +415,6 @@ fn main_menu(tcod: &mut Tcod) {
             _ => {}
         }
     }
-}
-
-fn msgbox(text: &str, width: i32, root: &mut Root) {
-    let options: &[&str] = &[];
-    menu(text, options, width, root);
 }
 
 fn main() {

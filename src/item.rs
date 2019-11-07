@@ -1,5 +1,6 @@
 use crate::ai::Ai;
-use crate::map::{Game, PLAYER};
+use crate::game::Game;
+use crate::map::PLAYER;
 use crate::object::*;
 use crate::Tcod;
 use serde::{Deserialize, Serialize};

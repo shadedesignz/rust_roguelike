@@ -1,10 +1,11 @@
-use crate::map::{Game, Map, PLAYER};
+use crate::map::{Map, PLAYER};
 use crate::object::Object;
 use crate::Tcod;
 use rand::Rng;
 use std::cmp;
 use tcod::colors::{DARK_RED, ORANGE, RED};
 
+use crate::game::Game;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Copy, PartialEq, Debug, Serialize, Deserialize)]
@@ -24,7 +25,7 @@ impl DeathCallback {
     }
 }
 
-pub fn player_death(player: &mut Object, game: &mut Game) {
+fn player_death(player: &mut Object, game: &mut Game) {
     // Game over
     game.messages.add("You died!", RED);
 
@@ -33,7 +34,7 @@ pub fn player_death(player: &mut Object, game: &mut Game) {
     player.color = DARK_RED;
 }
 
-pub fn monster_death(monster: &mut Object, game: &mut Game) {
+fn monster_death(monster: &mut Object, game: &mut Game) {
     game.messages
         .add(format!("{} is dead!", monster.name), ORANGE);
 

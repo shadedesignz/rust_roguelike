@@ -1,10 +1,11 @@
 use crate::ai::{Ai, DeathCallback, Fighter};
-use crate::map::{Game, Map, Rect, MAP_HEIGHT, MAP_WIDTH, PLAYER};
+use crate::map::{Map, Rect, MAP_HEIGHT, MAP_WIDTH, PLAYER};
 use crate::{render_all, Tcod};
 use rand::Rng;
 use tcod::colors::*;
 use tcod::input::Event;
 
+use crate::game::Game;
 use crate::item::Item;
 use serde::{Deserialize, Serialize};
 use tcod::{input, BackgroundFlag, Console};
