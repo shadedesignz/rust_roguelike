@@ -3,12 +3,14 @@ use crate::map::*;
 use crate::object::{place_objects, Object};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
+use tcod::colors::*;
 
 #[derive(Serialize, Deserialize)]
 pub struct Game {
     pub map: Map,
     pub messages: Messages,
     pub inventory: Vec<Object>,
+    pub dungeon_level: u32,
 }
 
 impl Game {
@@ -17,11 +19,16 @@ impl Game {
             map: Game::make_map(objects),
             messages: Messages::new(),
             inventory: vec![],
+            dungeon_level: 1,
         }
     }
 
-    fn make_map(objects: &mut Vec<Object>) -> Map {
+    pub fn make_map(objects: &mut Vec<Object>) -> Map {
         let mut map = vec![vec![Tile::wall(); MAP_HEIGHT as usize]; MAP_WIDTH as usize];
+        // Player is the first element, remove everything else.
+        // NOTE: works only when the player is the first object!
+        assert_eq!(&objects[PLAYER] as *const _, &objects[0] as *const _);
+        objects.truncate(1);
         let mut rooms = vec![];
 
         for _ in 0..MAX_ROOMS {
@@ -70,6 +77,12 @@ impl Game {
                 rooms.push(new_room);
             }
         }
+
+        // Create stairs at the center of the last room
+        let (last_room_x, last_room_y) = rooms[rooms.len() - 1].center();
+        let mut stairs = Object::new(last_room_x, last_room_y, '<', "Stairs", WHITE, false);
+        stairs.always_visible = true;
+        objects.push(stairs);
 
         map
     }

@@ -21,13 +21,15 @@ use crate::gui::{render_bar, BAR_WIDTH, PANEL_HEIGHT, PANEL_Y};
 use crate::item::{pick_item_up, use_item};
 use crate::log::{msgbox, MSG_HEIGHT, MSG_WIDTH, MSG_X};
 use crate::map::*;
-use crate::object::PlayerAction;
 use crate::object::PlayerAction::*;
+use crate::object::{level_up, PlayerAction, LEVEL_UP_BASE, LEVEL_UP_FACTOR};
 use object::Object;
 
 // Actual window size
 pub const SCREEN_WIDTH: i32 = 80;
 pub const SCREEN_HEIGHT: i32 = 50;
+
+const CHARACTER_SCREEN_WIDTH: i32 = 30;
 
 // Max FPS
 const LIMIT_FPS: i32 = 20;
@@ -79,7 +81,10 @@ fn render_all(tcod: &mut Tcod, game: &mut Game, objects: &[Object], fov_recomput
 
     let mut to_draw: Vec<_> = objects
         .iter()
-        .filter(|o| tcod.fov.is_in_fov(o.x, o.y) || !o.alive && o.item.is_none())
+        .filter(|o| {
+            tcod.fov.is_in_fov(o.x, o.y)
+                || (o.always_visible && game.map[o.x as usize][o.y as usize].explored)
+        })
         .collect();
     // Sort so that non-blocking objects come first
     to_draw.sort_by(|o1, o2| o1.blocks.cmp(&o2.blocks));
@@ -117,6 +122,14 @@ fn render_all(tcod: &mut Tcod, game: &mut Game, objects: &[Object], fov_recomput
         max_hp,
         LIGHT_RED,
         DARKER_RED,
+    );
+
+    tcod.panel.print_ex(
+        1,
+        3,
+        BackgroundFlag::None,
+        TextAlignment::Left,
+        format!("Dungeon Level: {}", game.dungeon_level),
     );
 
     tcod.panel.set_default_foreground(LIGHT_GREY);
@@ -178,16 +191,90 @@ fn player_move_or_attack(
     TookTurn
 }
 
+fn next_level(tcod: &mut Tcod, game: &mut Game, objects: &mut Vec<Object>) {
+    game.messages.add(
+        "You take a moment to rest, and recover your strength.",
+        VIOLET,
+    );
+    let heal_hp = objects[PLAYER].fighter.map_or(0, |f| f.max_hp / 2);
+    objects[PLAYER].heal(heal_hp);
+
+    game.messages.add(
+        "After a rare moment of peace, you descend deeper into \
+         the heart of the dungeon...",
+        RED,
+    );
+    game.dungeon_level += 1;
+    game.map = Game::make_map(objects);
+    initialize_fov(tcod, &game.map);
+}
+
 fn handle_keys(tcod: &mut Tcod, game: &mut Game, objects: &mut Vec<Object>) -> PlayerAction {
     use tcod::input::KeyCode::*;
 
     let player_alive = objects[PLAYER].alive;
     match (tcod.key, tcod.key.text(), player_alive) {
         // Movement
-        (Key { code: Up, .. }, _, true) => player_move_or_attack(0, -1, game, objects),
-        (Key { code: Down, .. }, _, true) => player_move_or_attack(0, 1, game, objects),
-        (Key { code: Left, .. }, _, true) => player_move_or_attack(-1, 0, game, objects),
-        (Key { code: Right, .. }, _, true) => player_move_or_attack(1, 0, game, objects),
+        (Key { code: Up, .. }, _, true) | (Key { code: NumPad8, .. }, _, true) => {
+            player_move_or_attack(0, -1, game, objects)
+        }
+        (Key { code: Down, .. }, _, true) | (Key { code: NumPad2, .. }, _, true) => {
+            player_move_or_attack(0, 1, game, objects)
+        }
+        (Key { code: Left, .. }, _, true) | (Key { code: NumPad4, .. }, _, true) => {
+            player_move_or_attack(-1, 0, game, objects)
+        }
+        (Key { code: Right, .. }, _, true) | (Key { code: NumPad6, .. }, _, true) => {
+            player_move_or_attack(1, 0, game, objects)
+        }
+        (Key { code: Home, .. }, _, true) | (Key { code: NumPad7, .. }, _, true) => {
+            player_move_or_attack(-1, -1, game, objects)
+        }
+        (Key { code: PageUp, .. }, _, true) | (Key { code: NumPad9, .. }, _, true) => {
+            player_move_or_attack(1, -1, game, objects)
+        }
+        (Key { code: End, .. }, _, true) | (Key { code: NumPad1, .. }, _, true) => {
+            player_move_or_attack(-1, 1, game, objects)
+        }
+        (Key { code: PageDown, .. }, _, true) | (Key { code: NumPad3, .. }, _, true) => {
+            player_move_or_attack(1, 1, game, objects)
+        }
+        (Key { code: NumPad5, .. }, _, true) => {
+            // Do nothing, i.e. wait for the monster to come to you
+            TookTurn
+        }
+        (Key { code: Text, .. }, "<", true) => {
+            // Go down stairs if the player is on them
+            let player_on_stairs = objects
+                .iter()
+                .any(|object| object.pos() == objects[PLAYER].pos() && object.name == "Stairs");
+            if player_on_stairs {
+                next_level(tcod, game, objects);
+            }
+            DidntTakeTurn
+        }
+        (Key { code: Text, .. }, "c", true) => {
+            // Show character stats
+            let player = &objects[PLAYER];
+            let level = player.level;
+            let level_up_xp = LEVEL_UP_BASE + player.level * LEVEL_UP_FACTOR;
+            if let Some(fighter) = player.fighter.as_ref() {
+                let msg = format!(
+                    "Character Stats:\n\
+                     \n\
+                     Level: {}\n\
+                     Experience: {}\n\
+                     Experience to Level Up: {}\n\
+                     \n\
+                     Maximum HP: {}\n\
+                     Attack: {}\n\
+                     Defense: {}",
+                    level, fighter.xp, level_up_xp, fighter.max_hp, fighter.power, fighter.defense,
+                );
+                msgbox(&msg, CHARACTER_SCREEN_WIDTH, &mut tcod.root);
+            }
+            DidntTakeTurn
+        }
         (Key { code: Text, .. }, "d", true) => {
             // Show the inventory; If an item is selected, drop it
             let inventory_index = inventory_menu(
@@ -274,6 +361,7 @@ fn new_game(tcod: &mut Tcod) -> (Game, Vec<Object>) {
         hp: 30,
         defense: 2,
         power: 5,
+        xp: 0,
         on_death: DeathCallback::Player,
     });
 
@@ -334,6 +422,9 @@ fn play_game(tcod: &mut Tcod, game: &mut Game, objects: &mut Vec<Object>) {
         let fov_recompute = previous_player_position != (objects[PLAYER].pos());
         render_all(tcod, game, &objects, fov_recompute);
         tcod.root.flush();
+
+        // Level up if needed
+        level_up(tcod, game, objects);
 
         previous_player_position = objects[PLAYER].pos();
         let player_action = handle_keys(tcod, game, objects);

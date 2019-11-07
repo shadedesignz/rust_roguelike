@@ -35,8 +35,14 @@ fn player_death(player: &mut Object, game: &mut Game) {
 }
 
 fn monster_death(monster: &mut Object, game: &mut Game) {
-    game.messages
-        .add(format!("{} is dead!", monster.name), ORANGE);
+    game.messages.add(
+        format!(
+            "{} is dead! You gain {} experience points.",
+            monster.name,
+            monster.fighter.unwrap().xp,
+        ),
+        ORANGE,
+    );
 
     // Turn the monster into a corpse
     monster.char = '%';
@@ -53,6 +59,7 @@ pub struct Fighter {
     pub hp: i32,
     pub defense: i32,
     pub power: i32,
+    pub xp: i32,
     pub on_death: DeathCallback,
 }
 

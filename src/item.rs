@@ -68,7 +68,9 @@ fn cast_lightning(
             ),
             LIGHT_BLUE,
         );
-        objects[monster_id].take_damage(LIGHTNING_DAMAGE, game);
+        if let Some(xp) = objects[monster_id].take_damage(LIGHTNING_DAMAGE, game) {
+            objects[PLAYER].fighter.as_mut().unwrap().xp += xp;
+        }
         UseResult::UsedUp
     } else {
         // No enemy found within maximum range
@@ -132,18 +134,25 @@ fn cast_fireball(
         ORANGE,
     );
 
+    let mut xp_to_gain = 0;
     for (id, obj) in objects.iter_mut().enumerate() {
-        if obj.distance(x, y) <= FIREBALL_RADIUS as f32 && obj.fighter.is_some() && id != PLAYER {
+        if obj.distance(x, y) <= FIREBALL_RADIUS as f32 && obj.fighter.is_some() {
             game.messages.add(
                 format!(
-                    "The {} gets burned for {} hit points",
-                    obj.name, FIREBALL_DAMAGE,
+                    "The {} gets burned for {} hit points.",
+                    obj.name, FIREBALL_DAMAGE
                 ),
                 ORANGE,
             );
-            obj.take_damage(FIREBALL_DAMAGE, game);
+            if let Some(xp) = obj.take_damage(FIREBALL_DAMAGE, game) {
+                if id != PLAYER {
+                    // Don't reward the player for burning themself!
+                    xp_to_gain += xp;
+                }
+            }
         }
     }
+    objects[PLAYER].fighter.as_mut().unwrap().xp += xp_to_gain;
 
     UseResult::UsedUp
 }

@@ -1,5 +1,5 @@
 use crate::ai::{Ai, DeathCallback, Fighter};
-use crate::map::{Map, Rect, MAP_HEIGHT, MAP_WIDTH, PLAYER};
+use crate::map::{menu, Map, Rect, MAP_HEIGHT, MAP_WIDTH, PLAYER};
 use crate::{render_all, Tcod};
 use rand::Rng;
 use tcod::colors::*;
@@ -12,6 +12,11 @@ use tcod::{input, BackgroundFlag, Console};
 
 const MAX_ROOM_MONSTERS: i32 = 3;
 const MAX_ROOM_ITEMS: i32 = 2;
+
+pub const LEVEL_UP_BASE: i32 = 200;
+pub const LEVEL_UP_FACTOR: i32 = 150;
+
+const LEVEL_SCREEN_WIDTH: i32 = 40;
 
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum PlayerAction {
@@ -64,6 +69,52 @@ pub fn closest_monster(tcod: &Tcod, objects: &[Object], max_range: i32) -> Optio
     closest_enemy
 }
 
+pub fn level_up(tcod: &mut Tcod, game: &mut Game, objects: &mut [Object]) {
+    let player = &mut objects[PLAYER];
+    let level_up_xp = LEVEL_UP_BASE + player.level * LEVEL_UP_FACTOR;
+    // See if the player's xp is enough to level up
+    if player.fighter.as_ref().map_or(0, |f| f.xp) >= level_up_xp {
+        // Level up
+        player.level += 1;
+        game.messages.add(
+            format!(
+                "Your battle skills grow stronger! You reached level {}",
+                player.level
+            ),
+            YELLOW,
+        );
+        let fighter = player.fighter.as_mut().unwrap();
+        let mut choice = None;
+        while choice.is_none() {
+            // Keep asking until a choice is made
+            choice = menu(
+                "Level up! Choose a stat to raise:\n",
+                &[
+                    format!("Constitution (+20 HP, from {})", fighter.max_hp),
+                    format!("Strength (+1 attack, from {})", fighter.power),
+                    format!("Agility (+1 defense, from {})", fighter.defense),
+                ],
+                LEVEL_SCREEN_WIDTH,
+                &mut tcod.root,
+            );
+        }
+        fighter.xp -= level_up_xp;
+        match choice.unwrap() {
+            0 => {
+                fighter.max_hp += 20;
+                fighter.hp += 20;
+            }
+            1 => {
+                fighter.power += 1;
+            }
+            2 => {
+                fighter.defense += 1;
+            }
+            _ => unreachable!(),
+        }
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Object {
     pub x: i32,
@@ -76,6 +127,8 @@ pub struct Object {
     pub fighter: Option<Fighter>,
     pub ai: Option<Ai>,
     pub item: Option<Item>,
+    pub always_visible: bool,
+    pub level: i32,
 }
 
 impl Object {
@@ -91,6 +144,8 @@ impl Object {
             fighter: None,
             ai: None,
             item: None,
+            always_visible: false,
+            level: 1,
         }
     }
 
@@ -130,7 +185,7 @@ impl Object {
         ((dx.pow(2) + dy.pow(2)) as f32).sqrt()
     }
 
-    pub fn take_damage(&mut self, damage: i32, game: &mut Game) {
+    pub fn take_damage(&mut self, damage: i32, game: &mut Game) -> Option<i32> {
         // Apply damage if possible
         if let Some(fighter) = self.fighter.as_mut() {
             if damage > 0 {
@@ -144,9 +199,12 @@ impl Object {
         if let Some(fighter) = self.fighter {
             if fighter.hp == 0 {
                 self.alive = false;
+                self.always_visible = true;
                 fighter.on_death.callback(self, game);
+                return Some(fighter.xp);
             }
         }
+        None
     }
 
     pub fn attack(&mut self, target: &mut Object, game: &mut Game) {
@@ -158,7 +216,10 @@ impl Object {
                 format!("{} attacks {} for {} hp", self.name, target.name, damage),
                 WHITE,
             );
-            target.take_damage(damage, game);
+            if let Some(xp) = target.take_damage(damage, game) {
+                // Yield xp to the player
+                self.fighter.as_mut().unwrap().xp += xp;
+            }
         } else {
             game.messages.add(
                 format!(
@@ -236,6 +297,7 @@ pub fn place_objects(room: Rect, map: &Map, objects: &mut Vec<Object>) {
                     hp: 10,
                     defense: 0,
                     power: 3,
+                    xp: 35,
                     on_death: DeathCallback::Monster,
                 });
                 orc.ai = Some(Ai::Basic);
@@ -247,6 +309,7 @@ pub fn place_objects(room: Rect, map: &Map, objects: &mut Vec<Object>) {
                     hp: 16,
                     defense: 1,
                     power: 4,
+                    xp: 100,
                     on_death: DeathCallback::Monster,
                 });
                 troll.ai = Some(Ai::Basic);
@@ -269,7 +332,7 @@ pub fn place_objects(room: Rect, map: &Map, objects: &mut Vec<Object>) {
         // Only place an item if the tile is not blocked
         if !is_blocked(x, y, map, objects) {
             let dice = rand::random::<f32>();
-            let item = if dice < 0.7 {
+            let mut item = if dice < 0.7 {
                 // Create a healing potion (70% chance)
                 let mut object = Object::new(x, y, '!', "Healing Potion", VIOLET, false);
                 object.item = Some(Item::Heal);
@@ -291,6 +354,7 @@ pub fn place_objects(room: Rect, map: &Map, objects: &mut Vec<Object>) {
                 object.item = Some(Item::Fireball);
                 object
             };
+            item.always_visible = true;
             objects.push(item);
         }
     }
