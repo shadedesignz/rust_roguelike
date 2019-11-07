@@ -1,7 +1,9 @@
 use crate::ai::{Ai, DeathCallback, Fighter};
 use crate::map::{menu, Map, Rect, MAP_HEIGHT, MAP_WIDTH, PLAYER};
 use crate::{render_all, Tcod};
+use rand::prelude::*;
 use rand::Rng;
+use rand::distributions::{WeightedIndex};
 use tcod::colors::*;
 use tcod::input::Event;
 
@@ -284,36 +286,46 @@ pub fn is_blocked(x: i32, y: i32, map: &Map, objects: &[Object]) -> bool {
 pub fn place_objects(room: Rect, map: &Map, objects: &mut Vec<Object>) {
     let num_monsters = rand::thread_rng().gen_range(0, MAX_ROOM_MONSTERS + 1);
 
+    // Monster random choice table
+    let monster_chances = [
+        ("Orc", 8),
+        ("Troll", 2),
+    ];
+    let monster_choice = WeightedIndex::new(monster_chances.iter().map(|item| item.1)).unwrap();
+
     for _ in 0..num_monsters {
         let x = rand::thread_rng().gen_range(room.x1 + 1, room.x2);
         let y = rand::thread_rng().gen_range(room.y1 + 1, room.y2);
 
         if !is_blocked(x, y, map, objects) {
-            // 0.8 = 80% chance of getting an orc
-            let mut monster = if rand::random::<f32>() < 0.8 {
-                let mut orc = Object::new(x, y, 'o', "Orc", DESATURATED_GREEN, true);
-                orc.fighter = Some(Fighter {
-                    max_hp: 10,
-                    hp: 10,
-                    defense: 0,
-                    power: 3,
-                    xp: 35,
-                    on_death: DeathCallback::Monster,
-                });
-                orc.ai = Some(Ai::Basic);
-                orc
-            } else {
-                let mut troll = Object::new(x, y, 'T', "Troll", DARKER_GREEN, true);
-                troll.fighter = Some(Fighter {
-                    max_hp: 16,
-                    hp: 16,
-                    defense: 1,
-                    power: 4,
-                    xp: 100,
-                    on_death: DeathCallback::Monster,
-                });
-                troll.ai = Some(Ai::Basic);
-                troll
+            let mut monster = match monster_chances[monster_choice.sample(&mut rand::thread_rng())].0 {
+                "Orc" => {
+                    let mut orc = Object::new(x, y, 'o', "Orc", DESATURATED_GREEN, true);
+                    orc.fighter = Some(Fighter {
+                        max_hp: 10,
+                        hp: 10,
+                        defense: 0,
+                        power: 3,
+                        xp: 35,
+                        on_death: DeathCallback::Monster,
+                    });
+                    orc.ai = Some(Ai::Basic);
+                    orc
+                },
+                "Troll" => {
+                    let mut troll = Object::new(x, y, 'T', "Troll", DARKER_GREEN, true);
+                    troll.fighter = Some(Fighter {
+                        max_hp: 16,
+                        hp: 16,
+                        defense: 1,
+                        power: 4,
+                        xp: 100,
+                        on_death: DeathCallback::Monster,
+                    });
+                    troll.ai = Some(Ai::Basic);
+                    troll
+                },
+                _ => unreachable!(),
             };
 
             monster.alive = true;
