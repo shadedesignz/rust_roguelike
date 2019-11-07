@@ -6,7 +6,7 @@ use crate::Tcod;
 use serde::{Deserialize, Serialize};
 use tcod::colors::*;
 
-const HEAL_AMOUNT: i32 = 4;
+const HEAL_AMOUNT: i32 = 40;
 
 const LIGHTNING_DAMAGE: i32 = 40;
 const LIGHTNING_RANGE: i32 = 5;
@@ -15,7 +15,7 @@ const CONFUSE_RANGE: i32 = 8;
 const CONFUSE_NUM_TURNS: i32 = 10;
 
 const FIREBALL_RADIUS: i32 = 3;
-const FIREBALL_DAMAGE: i32 = 12;
+const FIREBALL_DAMAGE: i32 = 25;
 
 #[derive(Clone, Copy, PartialEq, Debug, Serialize, Deserialize)]
 pub enum Item {
@@ -228,4 +228,17 @@ impl Scroll {
         object.always_visible = true;
         object
     }
+}
+
+pub struct Transition {
+    pub level: u32,
+    pub value: u32,
+}
+
+pub fn from_dungeon_level(table: &[Transition], level: u32) -> u32 {
+    table
+        .iter()
+        .rev()
+        .find(|transition| level >= transition.level)
+        .map_or(0, |transition| transition.value)
 }

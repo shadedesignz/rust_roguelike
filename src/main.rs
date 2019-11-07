@@ -205,7 +205,7 @@ fn next_level(tcod: &mut Tcod, game: &mut Game, objects: &mut Vec<Object>) {
         RED,
     );
     game.dungeon_level += 1;
-    game.map = Game::make_map(objects);
+    game.map = Game::make_map(objects, game.dungeon_level);
     initialize_fov(tcod, &game.map);
 }
 
@@ -357,10 +357,10 @@ fn new_game(tcod: &mut Tcod) -> (Game, Vec<Object>) {
     let mut player = Object::new(0, 0, '@', "Player", WHITE, true);
     player.alive = true;
     player.fighter = Some(Fighter {
-        max_hp: 30,
-        hp: 30,
-        defense: 2,
-        power: 5,
+        max_hp: 100,
+        hp: 100,
+        defense: 1,
+        power: 4,
         xp: 0,
         on_death: DeathCallback::Player,
     });

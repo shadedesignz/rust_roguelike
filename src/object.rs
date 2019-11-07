@@ -8,12 +8,9 @@ use tcod::colors::*;
 use tcod::input::Event;
 
 use crate::game::Game;
-use crate::item::{Item, Potion, Scroll};
+use crate::item::{from_dungeon_level, Item, Potion, Scroll, Transition};
 use serde::{Deserialize, Serialize};
 use tcod::{input, BackgroundFlag, Console};
-
-const MAX_ROOM_MONSTERS: i32 = 3;
-const MAX_ROOM_ITEMS: i32 = 2;
 
 pub const LEVEL_UP_BASE: i32 = 200;
 pub const LEVEL_UP_FACTOR: i32 = 150;
@@ -283,11 +280,38 @@ pub fn is_blocked(x: i32, y: i32, map: &Map, objects: &[Object]) -> bool {
         .any(|object| object.blocks && object.pos() == (x, y))
 }
 
-pub fn place_objects(room: Rect, map: &Map, objects: &mut Vec<Object>) {
-    let num_monsters = rand::thread_rng().gen_range(0, MAX_ROOM_MONSTERS + 1);
+pub fn place_objects(room: Rect, map: &Map, objects: &mut Vec<Object>, level: u32) {
+    // Max number of monsters per room
+    let max_monsters = from_dungeon_level(
+        &[
+            Transition { level: 1, value: 2 },
+            Transition { level: 4, value: 3 },
+            Transition { level: 6, value: 5 },
+        ],
+        level,
+    );
+    let num_monsters = rand::thread_rng().gen_range(0, max_monsters + 1);
+
+    let troll_chance = from_dungeon_level(
+        &[
+            Transition {
+                level: 3,
+                value: 15,
+            },
+            Transition {
+                level: 5,
+                value: 30,
+            },
+            Transition {
+                level: 7,
+                value: 60,
+            },
+        ],
+        level,
+    );
 
     // Monster random choice table
-    let monster_chances = [("Orc", 8), ("Troll", 2)];
+    let monster_chances = [("Orc", 80), ("Troll", troll_chance)];
     let monster_choice = WeightedIndex::new(monster_chances.iter().map(|item| item.1)).unwrap();
 
     for _ in 0..num_monsters {
@@ -300,10 +324,10 @@ pub fn place_objects(room: Rect, map: &Map, objects: &mut Vec<Object>) {
                     "Orc" => {
                         let mut orc = Object::new(x, y, 'o', "Orc", DESATURATED_GREEN, true);
                         orc.fighter = Some(Fighter {
-                            max_hp: 10,
-                            hp: 10,
+                            max_hp: 20,
+                            hp: 20,
                             defense: 0,
-                            power: 3,
+                            power: 4,
                             xp: 35,
                             on_death: DeathCallback::Monster,
                         });
@@ -313,10 +337,10 @@ pub fn place_objects(room: Rect, map: &Map, objects: &mut Vec<Object>) {
                     "Troll" => {
                         let mut troll = Object::new(x, y, 'T', "Troll", DARKER_GREEN, true);
                         troll.fighter = Some(Fighter {
-                            max_hp: 16,
-                            hp: 16,
-                            defense: 1,
-                            power: 4,
+                            max_hp: 30,
+                            hp: 30,
+                            defense: 2,
+                            power: 8,
                             xp: 100,
                             on_death: DeathCallback::Monster,
                         });
@@ -331,15 +355,50 @@ pub fn place_objects(room: Rect, map: &Map, objects: &mut Vec<Object>) {
         }
     }
 
+    let max_items = from_dungeon_level(
+        &[
+            Transition { level: 1, value: 1 },
+            Transition { level: 4, value: 2 },
+        ],
+        level,
+    );
+
     // Choose random number of items
-    let num_items = rand::thread_rng().gen_range(0, MAX_ROOM_ITEMS + 1);
+    let num_items = rand::thread_rng().gen_range(0, max_items + 1);
 
     // Item random choice table
     let item_chances = [
-        (Item::Heal, 7),
-        (Item::Lightning, 1),
-        (Item::Fireball, 1),
-        (Item::Confuse, 1),
+        (Item::Heal, 35),
+        (
+            Item::Lightning,
+            from_dungeon_level(
+                &[Transition {
+                    level: 4,
+                    value: 25,
+                }],
+                level,
+            ),
+        ),
+        (
+            Item::Fireball,
+            from_dungeon_level(
+                &[Transition {
+                    level: 6,
+                    value: 25,
+                }],
+                level,
+            ),
+        ),
+        (
+            Item::Confuse,
+            from_dungeon_level(
+                &[Transition {
+                    level: 2,
+                    value: 10,
+                }],
+                level,
+            ),
+        ),
     ];
     let item_choice = WeightedIndex::new(item_chances.iter().map(|item| item.1)).unwrap();
 

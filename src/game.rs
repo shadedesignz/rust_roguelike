@@ -16,14 +16,14 @@ pub struct Game {
 impl Game {
     pub fn new(objects: &mut Vec<Object>) -> Self {
         Game {
-            map: Game::make_map(objects),
+            map: Game::make_map(objects, 1),
             messages: Messages::new(),
             inventory: vec![],
             dungeon_level: 1,
         }
     }
 
-    pub fn make_map(objects: &mut Vec<Object>) -> Map {
+    pub fn make_map(objects: &mut Vec<Object>, level: u32) -> Map {
         let mut map = vec![vec![Tile::wall(); MAP_HEIGHT as usize]; MAP_WIDTH as usize];
         // Player is the first element, remove everything else.
         // NOTE: works only when the player is the first object!
@@ -48,7 +48,7 @@ impl Game {
 
             if !failed {
                 create_room(new_room, &mut map);
-                place_objects(new_room, &map, objects);
+                place_objects(new_room, &map, objects, level);
 
                 // Center coordinates of the new room
                 let (new_x, new_y) = new_room.center();
